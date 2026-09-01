@@ -80,6 +80,55 @@ bun run test:integration
 
 `migration:fresh` executa todas as migrations `up`, reverte o schema até a versão inicial (`down --to 0`) e executa um novo `up`. Para limpar os dados locais, execute `docker compose down -v`.
 
+## Inspeção e Testes das Filas SQS (`awslocal`)
+
+Para inspecionar, publicar mensagens manualmente e testar as filas e a DLQ no LocalStack, recomendamos o uso da CLI [`awslocal`](https://github.com/localstack/awscli-local).
+
+### Instalação da CLI
+
+- **Via pipx (recomendado)**:
+  ```sh
+  pipx install awscli-local awscli
+  ```
+- **Via pip**:
+  ```sh
+  pip install awscli-local awscli
+  ```
+
+### Comandos úteis para o dia a dia
+
+1. **Listar filas ativas**:
+   ```sh
+   awslocal sqs list-queues
+   ```
+
+2. **Publicar uma aposta diretamente na fila SQS**:
+   ```sh
+   awslocal sqs send-message \
+     --queue-url http://localhost:4566/000000000000/wager-transactions.fifo \
+     --message-group-id "wallet-user-01" \
+     --message-deduplication-id "tx-001" \
+     --message-body '{"provider":"evolution","externalReference":"bet-001","userId":"usr-01","amount":5000,"currency":"BRL","type":"bet"}'
+   ```
+
+3. **Inspecionar eventos gerados (`wager-events.fifo`)**:
+   ```sh
+   awslocal sqs receive-message \
+     --queue-url http://localhost:4566/000000000000/wager-events.fifo \
+     --max-number-of-messages 10
+   ```
+
+4. **Inspecionar mensagens na Dead Letter Queue (`wager-transactions-dlq.fifo`)**:
+   ```sh
+   awslocal sqs receive-message \
+     --queue-url http://localhost:4566/000000000000/wager-transactions-dlq.fifo
+   ```
+
+5. **Limpar mensagens de uma fila (purge)**:
+   ```sh
+   awslocal sqs purge-queue --queue-url http://localhost:4566/000000000000/wager-transactions.fifo
+   ```
+
 ## Hardening em três instâncias
 
 O fluxo final usa PostgreSQL e LocalStack reais. Ele remove a porta publicada da aplicação, inicia três réplicas internas e executa os testes pelo serviço `test` na mesma rede Docker:
