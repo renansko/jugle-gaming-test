@@ -27,6 +27,6 @@ jobs:
       - run: docker compose -f compose.yaml -f compose.hardening.yaml up -d --build postgres localstack
       - run: docker compose -f compose.yaml -f compose.hardening.yaml run --rm app bun run migration:fresh
       - run: docker compose -f compose.yaml -f compose.hardening.yaml up -d --scale app=3 app
-      - run: docker compose -f compose.yaml -f compose.hardening.yaml run --rm test bun run hardening
+      - run: docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test bun run hardening
       - if: always()
         run: docker compose -f compose.yaml -f compose.hardening.yaml down -v

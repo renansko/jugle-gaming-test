@@ -29,7 +29,10 @@ Aggregate root que materializa o saldo de um jogador em uma moeda e é a unidade
 
 Toda mudança bloqueia somente a linha da wallet até o commit. Wallets diferentes continuam paralelas.
 
+## Persistência financeira
+
+A wallet continua sendo o aggregate root e a projeção operacional protegida pelo lock. Em uma operação que muda saldo, a wallet é persistida antes do ledger para satisfazer a referência SQL; ambos, a transação e a outbox/inbox aplicável confirmam no mesmo commit. O ledger não é a fonte de escrita concorrente: ele reconstrói e reconcilia o saldo da wallet.
+
 ## Código planejado
 
 `src/domain/wallet/wallet.ts`, repositório em `src/application/ports/wallet-repository.ts` e adapter MikroORM.
-

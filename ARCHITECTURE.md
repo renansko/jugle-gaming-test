@@ -16,6 +16,20 @@ Monólito modular NestJS com DDD pragmático e arquitetura hexagonal. `domain` n
 - **Referências fora de ordem:** estado `PENDING_REFERENCE`, worker com backoff exponencial, limite de tentativas e rejeição auditável ao expirar.
 - **Autenticação:** fora do primeiro timebox; `ProviderIdentityPort` e guard no-op deixam o ponto de extensão explícito. Health checks permanecem públicos.
 
+## Consistência distribuída e decisão sobre SAGA
+
+SAGA não foi adotada porque todas as alterações financeiras — transação, wallet, ledger, inbox e outbox — pertencem ao mesmo limite transacional PostgreSQL e são confirmadas atomicamente. A comunicação com o SQS utiliza Transactional Inbox/Outbox, idempotência persistente e entrega `at-least-once`.
+
+Uma SAGA seria considerada somente se o domínio fosse dividido futuramente entre serviços autônomos com bancos independentes, exigindo etapas e compensações próprias. `REFUND` e `ROLLBACK` permanecem operações financeiras do domínio e não são compensações técnicas de uma SAGA.
+
+```mermaid
+flowchart TD
+    Q{"Dados estão no mesmo banco?"}
+    Q -->|"Sim"| ACID["Transação ACID + Inbox/Outbox"]
+    Q -->|"Não, serviços autônomos"| Saga["Avaliar SAGA e compensações"]
+    ACID --> Current["Escolha do desafio atual"]
+```
+
 ## Limites transacionais
 
 `ProcessWagerTransaction` abre uma transação, resolve a idempotência, bloqueia a wallet, valida a referência, aplica a transição, insere ledger quando necessário, cria eventos na outbox e registra a inbox quando a origem é SQS. O ack acontece somente depois do commit.
@@ -42,4 +56,3 @@ Consultas e reconciliação não alteram lançamentos. Divergências são retorn
 ## Trade-offs
 
 O lock pessimista simplifica a prova de correção e favorece o desafio, ao custo de serializar operações da mesma wallet. A solução evita microserviços, Kafka, cache distribuído e autenticação completa para manter o foco no núcleo financeiro. Partidas dobradas e OpenTelemetry completo permanecem diferenciais posteriores.
-

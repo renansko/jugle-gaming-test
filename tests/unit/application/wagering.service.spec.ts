@@ -51,32 +51,47 @@ describe("WageringService Application Service", () => {
     const persisted: unknown[] = [];
 
     const em = {
-      findOne: mock(async (entityClass: unknown, filter: Record<string, unknown>) => {
-        if (entityClass === WagerTransactionEntity) {
-          if (filter.idempotencyKey) {
-            return setup.existingTransaction ?? null;
-          }
-          if (filter.providerId && filter.externalTransactionId) {
-            if (setup.existingProviderTx && filter.externalTransactionId === setup.existingProviderTx.externalTransactionId) {
-              return setup.existingProviderTx;
+      findOne: mock(
+        async (entityClass: unknown, filter: Record<string, unknown>) => {
+          if (entityClass === WagerTransactionEntity) {
+            if (filter.idempotencyKey) {
+              return setup.existingTransaction ?? null;
             }
-            if (setup.referenceTx && filter.externalTransactionId === setup.referenceTx.externalTransactionId) {
-              return setup.referenceTx;
+            if (filter.providerId && filter.externalTransactionId) {
+              if (
+                setup.existingProviderTx &&
+                filter.externalTransactionId ===
+                  setup.existingProviderTx.externalTransactionId
+              ) {
+                return setup.existingProviderTx;
+              }
+              if (
+                setup.referenceTx &&
+                filter.externalTransactionId ===
+                  setup.referenceTx.externalTransactionId
+              ) {
+                return setup.referenceTx;
+              }
+              return null;
+            }
+            if (filter.id) {
+              if (
+                setup.existingTransaction &&
+                filter.id === setup.existingTransaction.id
+              )
+                return setup.existingTransaction;
+              if (setup.referenceTx && filter.id === setup.referenceTx.id)
+                return setup.referenceTx;
+              return null;
             }
             return null;
           }
-          if (filter.id) {
-            if (setup.existingTransaction && filter.id === setup.existingTransaction.id) return setup.existingTransaction;
-            if (setup.referenceTx && filter.id === setup.referenceTx.id) return setup.referenceTx;
-            return null;
+          if (entityClass === WalletEntity) {
+            return setup.wallet ?? null;
           }
           return null;
-        }
-        if (entityClass === WalletEntity) {
-          return setup.wallet ?? null;
-        }
-        return null;
-      }),
+        },
+      ),
       create: mock((entityClass: unknown, data: unknown) => {
         created.push({ entityClass, data });
         return data;
@@ -92,7 +107,9 @@ describe("WageringService Application Service", () => {
 
     const orm = {
       em: {
-        transactional: mock(async (cb: (em: EntityManager) => Promise<unknown>) => cb(em)),
+        transactional: mock(
+          async (cb: (em: EntityManager) => Promise<unknown>) => cb(em),
+        ),
         fork: mock(() => em),
       },
     } as unknown as MikroORM;
@@ -206,8 +223,12 @@ describe("WageringService Application Service", () => {
       expect(wallet.balance).toBe("60.00");
       expect(wallet.version).toBe(2);
 
-      expect(created.some((c) => c.entityClass === WalletLedgerEntryEntity)).toBe(true);
-      expect(created.some((c) => c.entityClass === OutboxMessageEntity)).toBe(true);
+      expect(
+        created.some((c) => c.entityClass === WalletLedgerEntryEntity),
+      ).toBe(true);
+      expect(created.some((c) => c.entityClass === OutboxMessageEntity)).toBe(
+        true,
+      );
     });
 
     test("rejects BET with INSUFFICIENT_FUNDS without mutating balance or creating ledger entry", async () => {
@@ -242,8 +263,12 @@ describe("WageringService Application Service", () => {
       expect(wallet.balance).toBe("20.00");
       expect(wallet.version).toBe(1);
 
-      expect(created.some((c) => c.entityClass === WalletLedgerEntryEntity)).toBe(false);
-      expect(created.some((c) => c.entityClass === OutboxMessageEntity)).toBe(true);
+      expect(
+        created.some((c) => c.entityClass === WalletLedgerEntryEntity),
+      ).toBe(false);
+      expect(created.some((c) => c.entityClass === OutboxMessageEntity)).toBe(
+        true,
+      );
     });
   });
 
@@ -277,7 +302,9 @@ describe("WageringService Application Service", () => {
       expect(result.status).toBe("PROCESSED");
       expect(result.balance.amount).toBe("200.00");
       expect(wallet.balance).toBe("200.00");
-      expect(created.some((c) => c.entityClass === WalletLedgerEntryEntity)).toBe(true);
+      expect(
+        created.some((c) => c.entityClass === WalletLedgerEntryEntity),
+      ).toBe(true);
     });
 
     test("processes LOSS without changing balance or creating ledger entry", async () => {
@@ -309,7 +336,9 @@ describe("WageringService Application Service", () => {
       expect(result.status).toBe("PROCESSED");
       expect(result.balance.amount).toBe("50.00");
       expect(wallet.balance).toBe("50.00");
-      expect(created.some((c) => c.entityClass === WalletLedgerEntryEntity)).toBe(false);
+      expect(
+        created.some((c) => c.entityClass === WalletLedgerEntryEntity),
+      ).toBe(false);
     });
   });
 
@@ -368,7 +397,10 @@ describe("WageringService Application Service", () => {
         externalTransactionId: "bet-1",
       };
 
-      const { orm, created } = createEmMock({ wallet, referenceTx: referenceBet });
+      const { orm, created } = createEmMock({
+        wallet,
+        referenceTx: referenceBet,
+      });
       const service = new WageringService(orm, dummyMetrics);
 
       const result = await service.execute({
@@ -387,7 +419,9 @@ describe("WageringService Application Service", () => {
       expect(result.status).toBe("PROCESSED");
       expect(result.balance.amount).toBe("50.00");
       expect(wallet.balance).toBe("50.00");
-      expect(created.some((c) => c.entityClass === WalletLedgerEntryEntity)).toBe(true);
+      expect(
+        created.some((c) => c.entityClass === WalletLedgerEntryEntity),
+      ).toBe(true);
     });
 
     test("rejects ROLLBACK with REVERSAL_WOULD_NEGATIVE when rolling back a WIN that exceeds current balance", async () => {

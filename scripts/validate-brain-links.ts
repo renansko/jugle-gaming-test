@@ -35,7 +35,8 @@ async function main(): Promise<void> {
     }
   }
 
-  if (broken.length) throw new Error(`Broken Brain links:\n${broken.join("\n")}`);
+  if (broken.length)
+    throw new Error(`Broken Brain links:\n${broken.join("\n")}`);
   console.log(`validated-brain-links: ${files.length}`);
 }
 

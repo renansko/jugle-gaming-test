@@ -2,7 +2,7 @@
 
 ## Estado
 
-`IN PROGRESS` · prioridade alta · depende de: ISSUE-01.5.
+`DONE` · prioridade alta · depende de: ISSUE-01.5.
 
 ## Resultado esperado
 
@@ -21,7 +21,7 @@ Uma entrega reproduzível, demonstrável e resistente aos cenários eliminatóri
 - [x] Automatizar ambiente de testes multi-instância.
 - [x] Consolidar `bun run check`, `test:integration` e `test:concurrency`.
 - [x] Verificar planos de consulta e índices das rotas/workers críticos.
-- [ ] Executar matriz de crash/restart e invariantes pós-teste.
+- [x] Executar matriz de crash/restart e invariantes pós-teste.
 - [x] Revisar migrations `up/down/up` desde banco vazio.
 - [x] Validar backlinks e links do Brain.
 - [x] Preparar roteiro curto de arquitetura e falhas.
@@ -29,12 +29,12 @@ Uma entrega reproduzível, demonstrável e resistente aos cenários eliminatóri
 
 ## Critérios de aceite
 
-- [ ] Três ou mais instâncias preservam saldo, idempotência e ledger.
-- [ ] Todos os cenários obrigatórios passam de modo repetível.
-- [ ] Toda suíte encerra confirmando saldo materializado igual ao ledger.
-- [ ] Setup completo funciona a partir de checkout limpo.
-- [ ] Documentação permite reproduzir crashes, retry e DLQ.
-- [ ] Nenhuma falha eliminatória permanece aberta.
+- [x] Três ou mais instâncias preservam saldo, idempotência e ledger.
+- [x] Todos os cenários obrigatórios passam de modo repetível.
+- [x] Toda suíte encerra confirmando saldo materializado igual ao ledger.
+- [x] Setup completo funciona a partir de checkout limpo.
+- [x] Documentação permite reproduzir crashes, retry e DLQ.
+- [x] Nenhuma falha eliminatória permanece aberta.
 
 ## Evidências finais
 

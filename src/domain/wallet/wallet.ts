@@ -2,6 +2,24 @@ import { DomainError } from "../shared/domain-error";
 import { Money } from "../shared/money";
 import { type LedgerDirection, WalletLedgerEntry } from "./wallet-ledger-entry";
 
+export interface OpenWalletProps {
+  id: string;
+  playerId: string;
+  currency: string;
+  initialBalance?: Money;
+  now?: Date;
+}
+
+export interface RehydrateWalletProps {
+  id: string;
+  playerId: string;
+  currency: string;
+  balance: Money;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 /** @wiki docs/brain/entities/Wallet.md */
 export class Wallet {
   private constructor(
@@ -14,35 +32,104 @@ export class Wallet {
     public updatedAt: Date,
   ) {}
 
-  public static open(input: { id: string; playerId: string; currency: string; initialBalance?: Money; now?: Date }): Wallet {
-    const balance = input.initialBalance ?? Money.zero(input.currency);
-    if (balance.currency !== input.currency) throw new DomainError("CURRENCY_MISMATCH", "Initial balance currency differs from wallet");
-    const now = input.now ?? new Date();
-    return new Wallet(input.id, input.playerId, input.currency, balance, 1, now, now);
+  public static open(props: OpenWalletProps): Wallet {
+    const initialBalance = props.initialBalance ?? Money.zero(props.currency);
+
+    if (initialBalance.currency !== props.currency) {
+      throw new DomainError(
+        "CURRENCY_MISMATCH",
+        "Initial balance currency differs from wallet",
+      );
+    }
+
+    const timestamp = props.now ?? new Date();
+    return new Wallet(
+      props.id,
+      props.playerId,
+      props.currency,
+      initialBalance,
+      1,
+      timestamp,
+      timestamp,
+    );
   }
 
-  public static rehydrate(input: { id: string; playerId: string; currency: string; balance: Money; version: number; createdAt: Date; updatedAt: Date }): Wallet {
-    if (input.balance.currency !== input.currency || input.version < 1) throw new DomainError("INVALID_WALLET", "Invalid persisted wallet");
-    return new Wallet(input.id, input.playerId, input.currency, input.balance, input.version, input.createdAt, input.updatedAt);
+  public static rehydrate(state: RehydrateWalletProps): Wallet {
+    if (state.balance.currency !== state.currency || state.version < 1) {
+      throw new DomainError("INVALID_WALLET", "Invalid persisted wallet");
+    }
+
+    return new Wallet(
+      state.id,
+      state.playerId,
+      state.currency,
+      state.balance,
+      state.version,
+      state.createdAt,
+      state.updatedAt,
+    );
   }
 
-  public credit(amount: Money, transactionId: string, entryId: string, now = new Date()): WalletLedgerEntry {
-    return this.change("CREDIT", amount, transactionId, entryId, now);
+  public credit(
+    amount: Money,
+    transactionId: string,
+    entryId: string,
+    now = new Date(),
+  ): WalletLedgerEntry {
+    return this.applyMovement("CREDIT", amount, transactionId, entryId, now);
   }
 
-  public debit(amount: Money, transactionId: string, entryId: string, now = new Date()): WalletLedgerEntry {
-    return this.change("DEBIT", amount, transactionId, entryId, now);
+  public debit(
+    amount: Money,
+    transactionId: string,
+    entryId: string,
+    now = new Date(),
+  ): WalletLedgerEntry {
+    return this.applyMovement("DEBIT", amount, transactionId, entryId, now);
   }
 
-  private change(direction: LedgerDirection, amount: Money, transactionId: string, entryId: string, now: Date): WalletLedgerEntry {
-    if (amount.currency !== this.currency) throw new DomainError("CURRENCY_MISMATCH", "Operation currency differs from wallet");
-    if (amount.isZero()) throw new DomainError("INVALID_MONEY", "Wallet movements must be positive");
-    const before = this.balance;
-    const after = direction === "CREDIT" ? before.add(amount) : before.subtract(amount);
-    const entry = WalletLedgerEntry.create({ id: entryId, walletId: this.id, transactionId, direction, money: amount, balanceBefore: before, balanceAfter: after, createdAt: now });
-    this.balance = after;
+  private applyMovement(
+    direction: LedgerDirection,
+    amount: Money,
+    transactionId: string,
+    entryId: string,
+    now: Date,
+  ): WalletLedgerEntry {
+    if (amount.currency !== this.currency) {
+      throw new DomainError(
+        "CURRENCY_MISMATCH",
+        "Operation currency differs from wallet",
+      );
+    }
+
+    if (amount.isZero()) {
+      throw new DomainError(
+        "INVALID_MONEY",
+        "Wallet movements must be positive",
+      );
+    }
+
+    const currentBalance = this.balance;
+    const nextBalance =
+      direction === "CREDIT"
+        ? currentBalance.add(amount)
+        : currentBalance.subtract(amount);
+
+    const ledgerEntry = WalletLedgerEntry.create({
+      id: entryId,
+      walletId: this.id,
+      transactionId,
+      direction,
+      money: amount,
+      balanceBefore: currentBalance,
+      balanceAfter: nextBalance,
+      createdAt: now,
+    });
+
+    this.balance = nextBalance;
     this.version += 1;
     this.updatedAt = now;
-    return entry;
+
+    return ledgerEntry;
   }
 }

@@ -32,14 +32,22 @@ export class Migration20260831000100 extends Migration {
       constraint "wallet_ledger_entries_currency_format" check ("currency" ~ '^[A-Z]{3}$'),
       constraint "wallet_ledger_entries_reconciles" check (("direction" = 'CREDIT' and "balance_after" = "balance_before" + "amount") or ("direction" = 'DEBIT' and "balance_after" = "balance_before" - "amount"))
     );`);
-    this.addSql('create index "wallet_ledger_entries_wallet_created_id_index" on "wallet_ledger_entries" ("wallet_id", "created_at" desc, "id" desc);');
-    this.addSql(`create function prevent_wallet_ledger_mutation() returns trigger language plpgsql as $$ begin raise exception 'wallet ledger is append-only'; end; $$;`);
-    this.addSql('create trigger "wallet_ledger_entries_immutable" before update or delete on "wallet_ledger_entries" for each row execute function prevent_wallet_ledger_mutation();');
+    this.addSql(
+      'create index "wallet_ledger_entries_wallet_created_id_index" on "wallet_ledger_entries" ("wallet_id", "created_at" desc, "id" desc);',
+    );
+    this.addSql(
+      `create function prevent_wallet_ledger_mutation() returns trigger language plpgsql as $$ begin raise exception 'wallet ledger is append-only'; end; $$;`,
+    );
+    this.addSql(
+      'create trigger "wallet_ledger_entries_immutable" before update or delete on "wallet_ledger_entries" for each row execute function prevent_wallet_ledger_mutation();',
+    );
   }
 
   public override async down(): Promise<void> {
-    this.addSql('drop trigger if exists "wallet_ledger_entries_immutable" on "wallet_ledger_entries";');
-    this.addSql('drop function if exists prevent_wallet_ledger_mutation();');
+    this.addSql(
+      'drop trigger if exists "wallet_ledger_entries_immutable" on "wallet_ledger_entries";',
+    );
+    this.addSql("drop function if exists prevent_wallet_ledger_mutation();");
     this.addSql('drop table if exists "wallet_ledger_entries";');
     this.addSql('drop table if exists "wager_transactions";');
     this.addSql('drop table if exists "wallets";');

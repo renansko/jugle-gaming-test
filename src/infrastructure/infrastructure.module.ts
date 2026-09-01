@@ -10,8 +10,14 @@ import { OperationalMetricsController } from "./observability/operational-metric
 @Module({
   controllers: [OperationalMetricsController],
   providers: [
-    { provide: AppConfig, useFactory: (): AppConfig => loadConfig(process.env) },
-    { provide: MikroORM, useFactory: async (): Promise<MikroORM> => MikroORM.init(mikroOrmConfig) },
+    {
+      provide: AppConfig,
+      useFactory: (): AppConfig => loadConfig(process.env),
+    },
+    {
+      provide: MikroORM,
+      useFactory: async (): Promise<MikroORM> => MikroORM.init(mikroOrmConfig),
+    },
     DependenciesHealthService,
     OperationalMetrics,
   ],

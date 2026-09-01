@@ -6,14 +6,14 @@ import { Money } from "../../domain/shared/money";
 import { WalletEntity } from "../../infrastructure/persistence/entities/wallet.entity";
 import { OperationalMetrics } from "../../infrastructure/observability/operational-metrics";
 
-export type ReconciliationResult = {
+export interface ReconciliationResult {
   storedBalance: string;
   calculatedBalance: string;
   difference: string;
   consistent: boolean;
   checkedEntries: number;
   currency: string;
-};
+}
 
 /** @wiki docs/brain/services/ReconciliationService.md */
 @Injectable()
@@ -21,32 +21,56 @@ export class ReconciliationService {
   private readonly logger = new Logger(ReconciliationService.name);
 
   public constructor(
-    @Inject(MikroORM) private readonly orm: MikroORM,
-    @Inject(OperationalMetrics) private readonly metrics: OperationalMetrics,
+    @Inject(MikroORM)
+    private readonly orm: MikroORM,
+    @Inject(OperationalMetrics)
+    private readonly metrics: OperationalMetrics,
   ) {}
 
   public async reconcile(
     walletId: string,
     correlationId = walletId,
   ): Promise<ReconciliationResult> {
-    const em = this.orm.em.fork();
-    const wallet = await em.findOne(WalletEntity, { id: walletId });
-    if (!wallet) throw new DomainError("WALLET_NOT_FOUND", "Wallet not found");
-    const rows = await em
+    const entityManager = this.orm.em.fork();
+    const wallet = await entityManager.findOne(WalletEntity, { id: walletId });
+
+    if (!wallet) {
+      throw new DomainError("WALLET_NOT_FOUND", "Wallet not found");
+    }
+
+    const query = `
+      SELECT
+        COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE -amount END), 0)::text AS "calculatedBalance",
+        COUNT(*)::text AS "checkedEntries"
+      FROM wallet_ledger_entries
+      WHERE wallet_id = ?
+    `;
+
+    const rows = await entityManager
       .getConnection()
       .execute<Array<{ calculatedBalance: string; checkedEntries: string }>>(
-        `select coalesce(sum(case when direction = 'CREDIT' then amount else -amount end), 0)::text as "calculatedBalance", count(*)::text as "checkedEntries"
-       from wallet_ledger_entries where wallet_id = ?`,
+        query,
         [walletId],
       );
-    const row = rows[0] ?? { calculatedBalance: "0", checkedEntries: "0" };
-    const stored = Money.create(wallet.balance, wallet.currency);
-    const calculated = Money.create(row.calculatedBalance, wallet.currency);
-    const difference = new Decimal(stored.amount)
-      .minus(calculated.amount)
+
+    const resultRow = rows[0] ?? {
+      calculatedBalance: "0",
+      checkedEntries: "0",
+    };
+
+    const storedBalance = Money.create(wallet.balance, wallet.currency);
+    const calculatedBalance = Money.create(
+      resultRow.calculatedBalance,
+      wallet.currency,
+    );
+
+    const difference = new Decimal(storedBalance.amount)
+      .minus(calculatedBalance.amount)
       .toFixed(2);
-    const consistent = stored.equals(calculated);
-    if (!consistent) {
+
+    const isConsistent = storedBalance.equals(calculatedBalance);
+
+    if (!isConsistent) {
       this.metrics.increment("reconciliation_divergences_total");
       this.logger.warn(
         JSON.stringify({
@@ -56,12 +80,13 @@ export class ReconciliationService {
         }),
       );
     }
+
     return {
-      storedBalance: stored.amount,
-      calculatedBalance: calculated.amount,
+      storedBalance: storedBalance.amount,
+      calculatedBalance: calculatedBalance.amount,
       difference,
-      consistent,
-      checkedEntries: Number(row.checkedEntries),
+      consistent: isConsistent,
+      checkedEntries: Number(resultRow.checkedEntries),
       currency: wallet.currency,
     };
   }

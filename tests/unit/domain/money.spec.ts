@@ -10,7 +10,9 @@ describe("Money Domain Value Object", () => {
   });
 
   test("subtracts exact amounts correctly", () => {
-    const result = Money.create("100.00", "USD").subtract(Money.create("25.50", "USD"));
+    const result = Money.create("100.00", "USD").subtract(
+      Money.create("25.50", "USD"),
+    );
     expect(result.amount).toBe("74.50");
     expect(result.currency).toBe("USD");
   });

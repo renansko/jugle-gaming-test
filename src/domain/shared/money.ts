@@ -12,12 +12,21 @@ export class Money {
 
   public static create(amount: string, currency: string): Money {
     if (!Money.amountPattern.test(amount)) {
-      throw new DomainError("INVALID_MONEY", "Amount must be a non-negative decimal with at most two places");
+      throw new DomainError(
+        "INVALID_MONEY",
+        "Amount must be a non-negative decimal with at most two places",
+      );
     }
+
     if (!/^[A-Z]{3}$/.test(currency)) {
-      throw new DomainError("INVALID_MONEY", "Currency must be an uppercase ISO-4217 code");
+      throw new DomainError(
+        "INVALID_MONEY",
+        "Currency must be an uppercase ISO-4217 code",
+      );
     }
-    return new Money(new Decimal(amount).toFixed(2), currency);
+
+    const normalizedAmount = new Decimal(amount).toFixed(2);
+    return new Money(normalizedAmount, currency);
   }
 
   public static zero(currency: string): Money {
@@ -30,14 +39,22 @@ export class Money {
 
   public add(other: Money): Money {
     this.assertSameCurrency(other);
-    return Money.create(new Decimal(this.amount).plus(other.amount).toFixed(2), this.currency);
+    const sum = new Decimal(this.amount).plus(other.amount).toFixed(2);
+    return Money.create(sum, this.currency);
   }
 
   public subtract(other: Money): Money {
     this.assertSameCurrency(other);
-    const value = new Decimal(this.amount).minus(other.amount);
-    if (value.isNegative()) throw new DomainError("INSUFFICIENT_FUNDS", "Resulting amount cannot be negative");
-    return Money.create(value.toFixed(2), this.currency);
+    const difference = new Decimal(this.amount).minus(other.amount);
+
+    if (difference.isNegative()) {
+      throw new DomainError(
+        "INSUFFICIENT_FUNDS",
+        "Resulting amount cannot be negative",
+      );
+    }
+
+    return Money.create(difference.toFixed(2), this.currency);
   }
 
   public equals(other: Money): boolean {
@@ -45,10 +62,15 @@ export class Money {
   }
 
   public toJSON(): { amount: string; currency: string } {
-    return { amount: this.amount, currency: this.currency };
+    return {
+      amount: this.amount,
+      currency: this.currency,
+    };
   }
 
   private assertSameCurrency(other: Money): void {
-    if (this.currency !== other.currency) throw new DomainError("CURRENCY_MISMATCH", "Currencies must match");
+    if (this.currency !== other.currency) {
+      throw new DomainError("CURRENCY_MISMATCH", "Currencies must match");
+    }
   }
 }

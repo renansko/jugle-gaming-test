@@ -8,6 +8,7 @@ Tudo que confirma uma operação financeira participa da mesma transação Postg
 
 - abrir transação na camada de aplicação via Unit of Work;
 - adquirir locks em ordem determinística;
+- persistir a wallet antes de entradas de ledger que a referenciam, sem antecipar o commit;
 - evitar chamadas de rede enquanto houver transação aberta;
 - confirmar antes de ack ou publicação;
 - rollback completo em erro transitório.
@@ -22,5 +23,4 @@ Unicidade, saldo não negativo, enums/estados e integridade referencial pertence
 
 ## Risco evitado
 
-Commits parciais criariam saldo sem ledger, inbox sem efeito ou evento perdido.
-
+Commits parciais criariam saldo sem ledger, inbox sem efeito ou evento perdido. A ordem de `flush` atende constraints de chave estrangeira; a atomicidade é preservada porque o commit continua único.

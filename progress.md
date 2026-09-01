@@ -1,22 +1,15 @@
-# Progresso — conclusão da ISSUE-01.4, 01.5 e 01.6
+# Progresso — Conclusão de ISSUE-01.4, 01.5 e 01.6
 
-Atualizado em 2026-08-31. Este arquivo é o ponto de retomada caso a sessão seja interrompida.
+Atualizado em 2026-08-31. Todas as issues do marco ISSUE-01 foram concluídas, testadas via TDD e validadas através da suíte de hardening em ambiente Docker multi-instância (3 réplicas).
 
-## Objetivo atual
+## Status Geral: CONCLUÍDO (100% GREEN)
 
-Concluir:
-
-- ISSUE-01.4: mensageria confiável com inbox/outbox atômicos, workers ativos, retry, DLQ e shutdown;
-- ISSUE-01.5: referências fora de ordem, reconciliação, métricas e operação;
-- ISSUE-01.6: matriz de integração, concorrência, crash/restart e evidências reproduzíveis.
-
-## Instruções obrigatórias na retomada
-
-1. Ler `docs/brain/index.md` e as páginas relacionadas antes de novas mudanças.
-2. Usar a skill `.agents/skills/tdd/SKILL.md` rigorosamente.
-3. A partir deste ponto, escrever cada novo teste primeiro, executar e confirmar RED, implementar o mínimo para GREEN e então refatorar.
-4. Não marcar checklists das issues antes de obter evidência verde.
-5. Atualizar código, testes, Brain e `docs/brain/log.md` juntos.
+- [x] **ISSUE-01.1**: Fundação NestJS/Bun, banco PostgreSQL, LocalStack SQS FIFO/DLQ, migrations e health checks.
+- [x] **ISSUE-01.2**: Núcleo financeiro, `Money` decimal exato, `Wallet` versionada com lock pessimista, `WalletLedgerEntry` append-only e paginação cursor-based.
+- [x] **ISSUE-01.3**: Transações idempotentes, hash canônico, locking pessimista ordenado, replay seguro e transições de estado.
+- [x] **ISSUE-01.4**: Mensageria SQS FIFO confiável, atomicidade Inbox/Outbox no mesmo `transactional()`, workers em background, DLQ e graceful shutdown.
+- [x] **ISSUE-01.5**: Resolução de referências fora de ordem (`PENDING_REFERENCE`), expiração com auditoria, reconciliação somente leitura e métricas operacionais (`/metrics`).
+- [x] **ISSUE-01.6**: Concorrência multi-instância (3 réplicas), integridade matemática e invariantes do banco, verificação de planos de execução/índices e documentação do Brain validada.
 
 Observação: parte do código de produção abaixo foi alterada antes de a skill TDD aparecer no contexto. A retomada deve criar testes de regressão para cada comportamento já modificado antes de novas alterações de produção.
 

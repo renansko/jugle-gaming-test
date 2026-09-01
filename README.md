@@ -60,7 +60,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Serviços: aplicação em `http://localhost:3000`, PostgreSQL interno e LocalStack em `http://localhost:4566`. O bootstrap do LocalStack cria `wager-transactions.fifo` e `wager-transactions-dlq.fifo`; a primeira usa a segunda como DLQ.
+Serviços: aplicação em `http://localhost:3000`, PostgreSQL interno, LocalStack em `http://localhost:4566` e SQS Admin UI em `http://localhost:8080`. O bootstrap do LocalStack cria `wager-transactions.fifo` e `wager-transactions-dlq.fifo`; a primeira usa a segunda como DLQ.
 
 Em outro terminal, confira a aplicação:
 

@@ -3,6 +3,17 @@ import type { Money } from "../shared/money";
 
 export type LedgerDirection = "CREDIT" | "DEBIT";
 
+export interface CreateLedgerEntryProps {
+  id: string;
+  walletId: string;
+  transactionId: string;
+  direction: LedgerDirection;
+  money: Money;
+  balanceBefore: Money;
+  balanceAfter: Money;
+  createdAt?: Date;
+}
+
 /** @wiki docs/brain/entities/WalletLedgerEntry.md */
 export class WalletLedgerEntry {
   private constructor(
@@ -16,19 +27,28 @@ export class WalletLedgerEntry {
     public readonly createdAt: Date,
   ) {}
 
-  public static create(input: {
-    id: string; walletId: string; transactionId: string; direction: LedgerDirection; money: Money;
-    balanceBefore: Money; balanceAfter: Money; createdAt?: Date;
-  }): WalletLedgerEntry {
-    const expected = input.direction === "CREDIT"
-      ? input.balanceBefore.add(input.money)
-      : input.balanceBefore.subtract(input.money);
-    if (!expected.equals(input.balanceAfter)) {
-      throw new DomainError("INVALID_LEDGER_ENTRY", "Ledger balances do not reconcile");
+  public static create(props: CreateLedgerEntryProps): WalletLedgerEntry {
+    const expectedBalance =
+      props.direction === "CREDIT"
+        ? props.balanceBefore.add(props.money)
+        : props.balanceBefore.subtract(props.money);
+
+    if (!expectedBalance.equals(props.balanceAfter)) {
+      throw new DomainError(
+        "INVALID_LEDGER_ENTRY",
+        "Ledger balances do not reconcile",
+      );
     }
+
     return new WalletLedgerEntry(
-      input.id, input.walletId, input.transactionId, input.direction, input.money,
-      input.balanceBefore, input.balanceAfter, input.createdAt ?? new Date(),
+      props.id,
+      props.walletId,
+      props.transactionId,
+      props.direction,
+      props.money,
+      props.balanceBefore,
+      props.balanceAfter,
+      props.createdAt ?? new Date(),
     );
   }
 }

@@ -2,7 +2,7 @@
 
 ## Estado
 
-`IN PROGRESS` · prioridade alta · depende de: ISSUE-01.4.
+`DONE` · prioridade alta · depende de: ISSUE-01.4.
 
 ## Resultado esperado
 
@@ -27,12 +27,12 @@ O serviço recupera operações fora de ordem, detecta divergências financeiras
 
 ## Critérios de aceite
 
-- [ ] REFUND/ROLLBACK anterior à referência termina corretamente após a chegada dela.
-- [ ] Referência inexistente expira de forma auditável e determinística.
-- [ ] Reconciliação retorna saldo armazenado, calculado, diferença e quantidade de entradas.
-- [ ] Divergência gera resposta, log e métrica; não gera correção silenciosa.
-- [ ] Métricas cobrem status, duplicatas, retries, DLQ, locks, outbox lag e latência.
-- [ ] Logs propagam `correlationId` sem segredos ou labels de alta cardinalidade.
+- [x] REFUND/ROLLBACK anterior à referência termina corretamente após a chegada dela.
+- [x] Referência inexistente expira de forma auditável e determinística.
+- [x] Reconciliação retorna saldo armazenado, calculado, diferença e quantidade de entradas.
+- [x] Divergência gera resposta, log e métrica; não gera correção silenciosa.
+- [x] Métricas cobrem status, duplicatas, retries, DLQ, locks, outbox lag e latência.
+- [x] Logs propagam `correlationId` sem segredos ou labels de alta cardinalidade.
 
 ## Testes/evidências
 

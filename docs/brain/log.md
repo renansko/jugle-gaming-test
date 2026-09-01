@@ -10,3 +10,7 @@
 - 2026-08-31 | ISSUE-01.6 | Fluxo reproduzível de hardening com três réplicas, suítes HTTP/concorrência, inspeção de índices e validação de links do Brain.
 - 2026-08-31 | WagerTransaction | Formalização e testes da máquina de estados, transições válidas e proteção de estados terminais.
 - 2026-08-31 | TDD Suite | Conclusão e validação estrita (52 testes unitários, Biome lint e TSC limpo) para ISSUE-01.1, ISSUE-01.2 e ISSUE-01.3.
+- 2026-08-31 | sqs-admin | Adicionado dashboard SQS Admin UI (`akilamaxi/sqs-admin-ui:v1`) no `compose.yaml` apontando para o LocalStack.
+- 2026-08-31 | ISSUE-01.4, 01.5, 01.6 | Conclusão e validação da suíte TDD completa de integração SQS/DLQ, referências fora de ordem, reconciliação/métricas e concorrência multi-instância (hardening green).
+- 2026-09-01 | Qualidade & Diretrizes | Refatoração de legibilidade/clean code em todas as camadas e formalização da regra de Complexidade Ciclomática Máxima 6 em AGENTS.md, CLAUDE.md e GEMINI.md.
+- 2026-09-01 | Onda 0 / WalletLedger | Wallet segue aggregate root e projeção bloqueada; flush ordenado de wallet, transação e ledger preserva FKs dentro de um commit atômico e permite reconciliação pelo ledger.

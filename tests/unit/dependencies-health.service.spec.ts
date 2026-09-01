@@ -18,5 +18,8 @@ const unavailableDependencies = new AppConfig(
 test("reports both dependencies down when PostgreSQL and SQS cannot be reached", async () => {
   const health = new DependenciesHealthService(unavailableDependencies);
 
-  await expect(health.check()).resolves.toEqual({ database: "down", sqs: "down" });
+  await expect(health.check()).resolves.toEqual({
+    database: "down",
+    sqs: "down",
+  });
 });

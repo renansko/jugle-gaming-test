@@ -10,7 +10,10 @@ export class DependenciesHealthService {
   public constructor(@Inject(AppConfig) private readonly config: AppConfig) {}
 
   public async check(): Promise<DependencyStatus> {
-    const [database, sqs] = await Promise.all([this.checkDatabase(), this.checkSqs()]);
+    const [database, sqs] = await Promise.all([
+      this.checkDatabase(),
+      this.checkSqs(),
+    ]);
     return { database, sqs };
   }
 
@@ -35,12 +38,26 @@ export class DependenciesHealthService {
     const client = new SQSClient({
       region: this.config.awsRegion,
       endpoint: this.config.sqsEndpoint,
-      credentials: { accessKeyId: this.config.awsAccessKeyId, secretAccessKey: this.config.awsSecretAccessKey },
+      credentials: {
+        accessKeyId: this.config.awsAccessKeyId,
+        secretAccessKey: this.config.awsSecretAccessKey,
+      },
     });
     try {
-      await Promise.all([this.config.wagerQueueUrl, this.config.wagerDlqUrl, this.config.eventQueueUrl].map((queueUrl) => client.send(
-        new GetQueueAttributesCommand({ QueueUrl: queueUrl, AttributeNames: ["QueueArn"] }),
-      )));
+      await Promise.all(
+        [
+          this.config.wagerQueueUrl,
+          this.config.wagerDlqUrl,
+          this.config.eventQueueUrl,
+        ].map((queueUrl) =>
+          client.send(
+            new GetQueueAttributesCommand({
+              QueueUrl: queueUrl,
+              AttributeNames: ["QueueArn"],
+            }),
+          ),
+        ),
+      );
       return "up";
     } catch {
       return "down";

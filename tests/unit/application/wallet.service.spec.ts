@@ -19,6 +19,7 @@ describe("WalletService Application Service", () => {
       persist: mock((entities: unknown) => {
         persistedEntities.push(entities);
       }),
+      flush: mock(async () => {}),
       persistAndFlush: mock(async (entity: unknown) => {
         persistedEntities.push(entity);
       }),
@@ -26,12 +27,17 @@ describe("WalletService Application Service", () => {
 
     const ormMock = {
       em: {
-        transactional: mock(async (cb: (em: EntityManager) => Promise<unknown>) => cb(emMock)),
+        transactional: mock(
+          async (cb: (em: EntityManager) => Promise<unknown>) => cb(emMock),
+        ),
       },
     } as unknown as MikroORM;
 
     const service = new WalletService(ormMock);
-    const result = await service.create({ playerId: "player-1", currency: "BRL" });
+    const result = await service.create({
+      playerId: "player-1",
+      currency: "BRL",
+    });
 
     expect(result.playerId).toBe("player-1");
     expect(result.currency).toBe("BRL");
@@ -41,7 +47,10 @@ describe("WalletService Application Service", () => {
   });
 
   test("creates wallet with positive balance atomic with OPENING transaction and ledger entry", async () => {
-    const createdEntities: Array<{ entityClass: unknown; data: Record<string, unknown> }> = [];
+    const createdEntities: Array<{
+      entityClass: unknown;
+      data: Record<string, unknown>;
+    }> = [];
     const persistedEntities: unknown[] = [];
 
     const emMock = {
@@ -52,6 +61,7 @@ describe("WalletService Application Service", () => {
       persist: mock((entities: unknown) => {
         persistedEntities.push(entities);
       }),
+      flush: mock(async () => {}),
       persistAndFlush: mock(async (entity: unknown) => {
         persistedEntities.push(entity);
       }),
@@ -59,23 +69,39 @@ describe("WalletService Application Service", () => {
 
     const ormMock = {
       em: {
-        transactional: mock(async (cb: (em: EntityManager) => Promise<unknown>) => cb(emMock)),
+        transactional: mock(
+          async (cb: (em: EntityManager) => Promise<unknown>) => cb(emMock),
+        ),
       },
     } as unknown as MikroORM;
 
     const service = new WalletService(ormMock);
-    const result = await service.create({ playerId: "player-2", currency: "USD", initialBalance: "150.00" });
+    const result = await service.create({
+      playerId: "player-2",
+      currency: "USD",
+      initialBalance: "150.00",
+    });
 
     expect(result.balance).toBe("150.00");
-    expect(createdEntities.some((c) => c.entityClass === WalletEntity)).toBe(true);
-    expect(createdEntities.some((c) => c.entityClass === WagerTransactionEntity)).toBe(true);
-    expect(createdEntities.some((c) => c.entityClass === WalletLedgerEntryEntity)).toBe(true);
+    expect(createdEntities.some((c) => c.entityClass === WalletEntity)).toBe(
+      true,
+    );
+    expect(
+      createdEntities.some((c) => c.entityClass === WagerTransactionEntity),
+    ).toBe(true);
+    expect(
+      createdEntities.some((c) => c.entityClass === WalletLedgerEntryEntity),
+    ).toBe(true);
 
-    const openingTx = createdEntities.find((c) => c.entityClass === WagerTransactionEntity);
+    const openingTx = createdEntities.find(
+      (c) => c.entityClass === WagerTransactionEntity,
+    );
     expect(openingTx?.data.kind).toBe("OPENING");
     expect(openingTx?.data.status).toBe("PROCESSED");
 
-    const ledgerEntry = createdEntities.find((c) => c.entityClass === WalletLedgerEntryEntity);
+    const ledgerEntry = createdEntities.find(
+      (c) => c.entityClass === WalletLedgerEntryEntity,
+    );
     expect(ledgerEntry?.data.direction).toBe("CREDIT");
     expect(ledgerEntry?.data.amount).toBe("150.00");
     expect(ledgerEntry?.data.balanceBefore).toBe("0.00");
@@ -86,7 +112,9 @@ describe("WalletService Application Service", () => {
     const ormMock = {
       em: {
         transactional: mock(async () => {
-          const err = new Error("Unique constraint violation") as Error & { code?: string };
+          const err = new Error("Unique constraint violation") as Error & {
+            code?: string;
+          };
           err.code = "23505";
           throw err;
         }),
@@ -94,7 +122,9 @@ describe("WalletService Application Service", () => {
     } as unknown as MikroORM;
 
     const service = new WalletService(ormMock);
-    await expect(service.create({ playerId: "player-1", currency: "BRL" })).rejects.toThrow(DomainError);
+    await expect(
+      service.create({ playerId: "player-1", currency: "BRL" }),
+    ).rejects.toThrow(DomainError);
     try {
       await service.create({ playerId: "player-1", currency: "BRL" });
     } catch (e) {
@@ -115,15 +145,41 @@ describe("WalletService Application Service", () => {
       } as unknown as MikroORM;
 
       const service = new WalletService(ormMock);
-      await expect(service.ledger("w-1", "invalid_cursor_string", 10)).rejects.toThrow(DomainError);
+      await expect(
+        service.ledger("w-1", "invalid_cursor_string", 10),
+      ).rejects.toThrow(DomainError);
     });
 
     test("returns items and nextCursor when result exceeds limit", async () => {
       const now = new Date("2026-08-31T12:00:00.000Z");
       const rows = [
-        { id: "e-1", direction: "CREDIT", amount: "50.00", currency: "USD", balanceBefore: "0.00", balanceAfter: "50.00", createdAt: now },
-        { id: "e-2", direction: "DEBIT", amount: "20.00", currency: "USD", balanceBefore: "50.00", balanceAfter: "30.00", createdAt: now },
-        { id: "e-3", direction: "CREDIT", amount: "10.00", currency: "USD", balanceBefore: "30.00", balanceAfter: "40.00", createdAt: now },
+        {
+          id: "e-1",
+          direction: "CREDIT",
+          amount: "50.00",
+          currency: "USD",
+          balanceBefore: "0.00",
+          balanceAfter: "50.00",
+          createdAt: now,
+        },
+        {
+          id: "e-2",
+          direction: "DEBIT",
+          amount: "20.00",
+          currency: "USD",
+          balanceBefore: "50.00",
+          balanceAfter: "30.00",
+          createdAt: now,
+        },
+        {
+          id: "e-3",
+          direction: "CREDIT",
+          amount: "10.00",
+          currency: "USD",
+          balanceBefore: "30.00",
+          balanceAfter: "40.00",
+          createdAt: now,
+        },
       ];
 
       const ormMock = {

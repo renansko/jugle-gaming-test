@@ -5,6 +5,7 @@
 - `INSUFFICIENT_FUNDS`: BET excede saldo.
 - `REVERSAL_WOULD_NEGATIVE`: reversão produziria saldo negativo.
 - `REFERENCE_NOT_FOUND`: referência expirou após reprocessamento.
+- `REFERENCE_NOT_PROCESSED`: transação referenciada não está em estado processado.
 - `INVALID_REFERENCE_KIND`: tipo referenciado não permitido.
 - `REFERENCE_SCOPE_MISMATCH`: provider/player/wallet/moeda/rodada diverge.
 - `REFERENCE_AMOUNT_MISMATCH`: reversão não corresponde ao valor integral.

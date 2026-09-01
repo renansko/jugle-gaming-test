@@ -3,7 +3,9 @@ import { OperationalMetrics } from "./operational-metrics";
 
 @Controller("metrics")
 export class OperationalMetricsController {
-  public constructor(@Inject(OperationalMetrics) private readonly metrics: OperationalMetrics) {}
+  public constructor(
+    @Inject(OperationalMetrics) private readonly metrics: OperationalMetrics,
+  ) {}
 
   @Get()
   public snapshot(): Record<string, number> {
