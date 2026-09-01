@@ -1,0 +1,46 @@
+{
+  "name": "junglegaming-test",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "bun@1.1.38",
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "start:dev": "bun --watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "biome lint src tests scripts --error-on-warnings",
+    "lint:fix": "biome check src tests --write",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/unit",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:concurrency": "bun test tests/concurrency",
+    "check": "bun run lint && bun run typecheck && bun run test:unit",
+    "verify:database": "bun run scripts/verify-database.ts",
+    "test:brain-links": "bun run scripts/validate-brain-links.ts",
+    "hardening": "bun run check && bun run test:integration && bun run test:concurrency && bun run verify:database && bun run test:brain-links",
+    "migration:create": "bunx mikro-orm migration:create",
+    "migration:up": "bunx mikro-orm migration:up",
+    "migration:down": "bunx mikro-orm migration:down",
+    "migration:fresh": "bun run migration:up && bunx mikro-orm migration:down --to 0 && bun run migration:up"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "3.726.1",
+    "@mikro-orm/core": "6.4.7",
+    "@mikro-orm/migrations": "6.4.7",
+    "@mikro-orm/postgresql": "6.4.7",
+    "@nestjs/common": "11.0.1",
+    "@nestjs/core": "11.0.1",
+    "decimal.js": "10.4.3",
+    "pg": "8.13.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.1",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@mikro-orm/cli": "6.4.7",
+    "@types/bun": "1.1.16",
+    "@types/pg": "8.11.10",
+    "typescript": "5.7.2"
+  }
+}

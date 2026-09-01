@@ -1,0 +1,20 @@
+services:
+  app:
+    ports: !reset []
+
+  test:
+    build: .
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://wagering:wagering@postgres:5432/wagering
+      SQS_ENDPOINT: http://localstack:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_WAGER_QUEUE_URL: http://localstack:4566/000000000000/wager-transactions.fifo
+      SQS_WAGER_DLQ_URL: http://localstack:4566/000000000000/wager-transactions-dlq.fifo
+      SQS_EVENT_QUEUE_URL: http://localstack:4566/000000000000/wager-events.fifo
+      TEST_APP_URL: http://app:3000
+    depends_on:
+      app:
+        condition: service_healthy
