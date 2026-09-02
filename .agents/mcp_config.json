@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "grafana": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@leval/mcp-grafana"
+      ],
+      "env": {
+        "GRAFANA_URL": "http://localhost:3001",
+        "GRAFANA_USER": "admin",
+        "GRAFANA_PASSWORD": "admin"
+      }
+    }
+  }
+}

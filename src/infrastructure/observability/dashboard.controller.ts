@@ -356,8 +356,9 @@ export class DashboardController {
         <span id="lastUpdated" style="font-size: 12px; color: var(--text-muted);">Atualizando...</span>
         <button class="btn" onclick="fetchData()">🔄 Atualizar</button>
         <a class="btn btn-primary" href="/metrics" target="_blank">📊 Prometheus /metrics</a>
-        <a class="btn" href="http://localhost:8080" target="_blank">📬 SQS Admin UI</a>
+        <a class="btn" href="http://localhost:3001" target="_blank">📈 Grafana</a>
       </div>
+
     </header>
 
     <!-- Health Checks -->

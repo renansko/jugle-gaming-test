@@ -1,4 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  DeleteMessageCommand,
+  ReceiveMessageCommand,
+  SQSClient,
+} from "@aws-sdk/client-sqs";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { MessagingHarness } from "../support/messaging-harness";
@@ -7,8 +12,19 @@ const baseUrl = process.env.TEST_APP_URL;
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql://wagering:wagering@postgres:5432/wagering";
+const eventQueueUrl =
+  process.env.SQS_EVENT_QUEUE_URL ??
+  "http://localstack:4566/000000000000/wager-events.fifo";
 
 const integration = baseUrl ? describe : describe.skip;
+const sqs = new SQSClient({
+  region: process.env.AWS_REGION ?? "us-east-1",
+  endpoint: process.env.SQS_ENDPOINT ?? "http://localstack:4566",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? "test",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "test",
+  },
+});
 
 type Wallet = { id: string; balance: { amount: string; currency: string } };
 type TransactionOutput = {
@@ -50,6 +66,50 @@ async function waitFor<T>(
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   throw new Error(`Timeout waiting for condition after ${timeoutMs}ms`);
+}
+
+async function waitForEvent(
+  transactionId: string,
+  eventType: string,
+): Promise<Record<string, unknown>> {
+  return waitFor(async () => {
+    const response = await sqs.send(
+      new ReceiveMessageCommand({
+        QueueUrl: eventQueueUrl,
+        MaxNumberOfMessages: 10,
+        WaitTimeSeconds: 1,
+      }),
+    );
+    let matchedEvent: Record<string, unknown> | null = null;
+
+    for (const message of response.Messages ?? []) {
+      try {
+        const event = JSON.parse(message.Body ?? "") as Record<
+          string,
+          unknown
+        >;
+        if (
+          event.eventType === eventType &&
+          event.aggregateId === transactionId
+        ) {
+          matchedEvent = event;
+        }
+      } catch {
+        // Invalid event payloads are irrelevant to this directed assertion.
+      }
+
+      if (message.ReceiptHandle) {
+        await sqs.send(
+          new DeleteMessageCommand({
+            QueueUrl: eventQueueUrl,
+            ReceiptHandle: message.ReceiptHandle,
+          }),
+        );
+      }
+    }
+
+    return matchedEvent;
+  });
 }
 
 integration("Pending reference & out-of-order resolution", () => {
@@ -195,6 +255,7 @@ integration("Pending reference & out-of-order resolution", () => {
         [refundPayload.id],
       );
       await harness.resolvePendingOnce();
+      await harness.publishUntilIdle();
 
       // Wait for PendingReferenceWorker loop to expire it
       const expiredRefund = await waitFor(async () => {
@@ -209,6 +270,16 @@ integration("Pending reference & out-of-order resolution", () => {
 
       expect(expiredRefund.status).toBe("REJECTED");
       expect(expiredRefund.failure_code).toBe("REFERENCE_NOT_FOUND");
+
+      const rejectedEvent = await waitForEvent(
+        refundPayload.id,
+        "WagerTransactionRejected",
+      );
+      expect(rejectedEvent.data).toMatchObject({
+        transactionId: refundPayload.id,
+        status: "REJECTED",
+        failureCode: "REFERENCE_NOT_FOUND",
+      });
 
       // Balance remains unchanged (100.00)
       const walletRes = await pgClient.query(

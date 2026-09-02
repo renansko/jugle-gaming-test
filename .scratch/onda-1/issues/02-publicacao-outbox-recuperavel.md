@@ -1,6 +1,6 @@
 # 02 — Publicação outbox recuperável
 
-Status: `implemented-pending-validation`
+Status: `closed`
 Type: `AFK`
 Labels: `needs-triage`
 
@@ -24,7 +24,7 @@ falhas totais, parciais e resultados ambíguos sem perder eventos.
 - [x] Falha parcial atualiza somente as mensagens que falharam.
 - [x] Resultado ambíguo mantém identidade estável e permite duplicação
       at-least-once sem perder o evento.
-- [ ] Testes verificam publicação, retry, lease e concorrência contra
+- [x] Testes verificam publicação, retry, lease e concorrência contra
       PostgreSQL e LocalStack reais.
 - [x] RED, GREEN, REFACTOR e evidências ficam registrados nesta issue.
 
@@ -43,5 +43,11 @@ O fechamento depende da integração end-to-end com o consumidor da [issue 01](0
 - GREEN: claim/finalização foram separados em transações curtas; `lease_token`
   foi adicionado pela migration `20260901000500`.
 - REFACTOR: sucesso e falha são finalizados por conjuntos independentes, com
-  updates condicionais ao token; ainda falta executar a validação real da
-  stack PostgreSQL + LocalStack.
+  updates condicionais ao token.
+- 2026-09-01 — fechamento: testes determinísticos cobrem resposta parcial e
+  transporte ambíguo com identidade estável; PostgreSQL/LocalStack reais cobrem
+  publishers concorrentes, lotes disjuntos, publicação e recuperação de lease
+  expirado. A asserção usa o estado durável porque arquivos de integração rodam
+  em paralelo e outro publisher dirigido pode reivindicar uma linha elegível.
+- Evidência: `bun run hardening` em Docker — 79 unitários, 19 integrações e 4
+  testes de concorrência, todos verdes; índices obrigatórios verificados.

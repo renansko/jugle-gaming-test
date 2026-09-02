@@ -1,6 +1,6 @@
 # 01 — Consumidor SQS atômico
 
-Status: `implemented-pending-validation`
+Status: `closed`
 Type: `AFK`
 Labels: `needs-triage`
 
@@ -23,7 +23,7 @@ resultado persistido.
 - [x] Falha transitória preserva a mensagem para redelivery e registra retry.
 - [x] Redelivery após commit não duplica saldo, ledger ou evento financeiro.
 - [x] Reuso de `messageId` com payload divergente é rejeitado por hash canônico.
-- [ ] Testes de integração usam PostgreSQL e LocalStack reais.
+- [x] Testes de integração usam PostgreSQL e LocalStack reais.
 - [x] RED, GREEN, REFACTOR e evidências ficam registrados nesta issue.
 
 ## Blocked by
@@ -45,6 +45,10 @@ Nenhuma. A conclusão desta issue libera a integração dependente da outbox.
 - 2026-09-01 — REFACTOR: o mapeamento do envelope foi isolado em
   `toWagerInput`; ACK, retry e DLQ continuam após o resultado do caso de uso.
 - Evidência estática: typecheck e Biome dos arquivos alterados concluídos sem
-  erros. Validação dinâmica pendente neste ambiente porque `bun` não está
-  instalado; executar `bun run check` e `bun run test:integration` com
-  PostgreSQL e LocalStack reais.
+  erros.
+- 2026-09-01 — fechamento: falha transitória fica sem ACK/DLQ; integração real
+  cobre envelope divergente, atomicidade financeira e redelivery pós-commit sem
+  duplicar inbox, transação, ledger ou saldo. O harness usa long poll de 1s;
+  produção preserva o padrão de 20s.
+- Evidência: `bun run hardening` em Docker — 79 unitários, 19 integrações e 4
+  testes de concorrência, todos verdes.

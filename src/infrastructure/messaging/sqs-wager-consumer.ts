@@ -88,7 +88,7 @@ export class SqsWagerConsumer {
     });
   }
 
-  public async pollOnce(): Promise<void> {
+  public async pollOnce(waitTimeSeconds = 20): Promise<void> {
     if (this.stopping) {
       return;
     }
@@ -100,7 +100,7 @@ export class SqsWagerConsumer {
         new ReceiveMessageCommand({
           QueueUrl: this.config.wagerQueueUrl,
           MaxNumberOfMessages: 10,
-          WaitTimeSeconds: 20,
+          WaitTimeSeconds: waitTimeSeconds,
           VisibilityTimeout: 60,
           MessageSystemAttributeNames: [
             "ApproximateReceiveCount",

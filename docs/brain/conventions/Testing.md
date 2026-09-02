@@ -29,6 +29,10 @@ Relógio, UUID e jitter são injetáveis; testes de race usam barreiras/latches,
 
 Em `NODE_ENV=test`, loops automáticos de mensageria ficam desabilitados por padrão. `TEST_WORKERS_AUTOSTART` só é válido nesse ambiente; o harness invoca consumer, publisher e worker de referências de forma dirigida, ainda contra PostgreSQL e LocalStack reais.
 
+O consumer mantém long poll de 20 segundos em produção. Chamadas dirigidas do
+harness usam 1 segundo para não transformar fila vazia em espera ou timeout do
+teste.
+
 O harness drena a outbox em lotes limitados até ficar ociosa. Testes que inspecionam a fila de eventos removem todas as mensagens recebidas, evitando resíduos entre repetições sobre a mesma stack.
 
 ## Hardening reproduzível

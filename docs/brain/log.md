@@ -21,4 +21,4 @@
 - 2026-09-01 | PEND-01 | Alinhamento de DTOs polimórficos (initialBalance, money, gameId), persistência e hash canônico de gameId, enriquecimento de entidades de domínio (Money, WagerTransaction, InboxMessage, OutboxMessage), migração 000500 e cobertura de integração dos 8 endpoints com status 200, 201, 400, 404, 409 e 422.
 - 2026-09-01 | ISSUE-02 | Publisher outbox com claim transacional `SKIP LOCKED`, lease/token recuperável, SQS fora do lock SQL, retry com backoff, finalização parcial e duplicação at-least-once em resultado ambíguo.
 - 2026-09-01 | Observabilidade & OpenTelemetry | Implementação de OpenTelemetry API, exportação Prometheus padrão e JSON, dashboard web embutido em `/dashboard` e stack Grafana/Prometheus provisionada no Docker Compose.
-
+- 2026-09-01 | Onda 1 / issues 01–03 | Consumidor SQS, outbox recuperável e referências pendentes fechados com provas TDD; hardening validou 79 testes unitários, 19 de integração e 4 de concorrência em PostgreSQL/LocalStack e três réplicas.

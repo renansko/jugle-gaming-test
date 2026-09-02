@@ -38,7 +38,7 @@ export class MessagingHarness {
   }
 
   public async consumeOnce(): Promise<void> {
-    await this.consumer.pollOnce();
+    await this.consumer.pollOnce(1);
   }
 
   public async publishUntilIdle(maxBatches = 100): Promise<void> {

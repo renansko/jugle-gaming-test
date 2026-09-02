@@ -1,6 +1,6 @@
 # 03 — Referências pendentes recuperáveis
 
-Status: `implemented`
+Status: `closed`
 Type: `AFK`
 Labels: `needs-triage`
 
@@ -40,4 +40,10 @@ O fechamento depende da publicação dos eventos pela [issue 02](02-publicacao-o
 - 2026-09-01 — RED: adicionado `tests/unit/pending-reference-worker.spec.ts`, cobrindo pendência sem `next_reference_attempt_at`; o teste falhava porque o claim exigia agenda não nula.
 - 2026-09-01 — GREEN: claim passou a aceitar agenda nula (`IS NULL OR <= NOW()`) e usa `NULLS FIRST`; leases, tentativas e backoff continuam persistidos em `wager_transactions`.
 - 2026-09-01 — REFACTOR: contratos do Brain documentam claim, lease e recuperação de registros legados; eventos de resolução/rejeição continuam sendo gravados na outbox na mesma unidade transacional.
-- Evidência estática: `git diff --check` sem erros. Validação dinâmica pendente neste ambiente porque o executável `bun` não está instalado; executar `bun run check`, `bun run test:integration` e `bun run test:concurrency` na stack PostgreSQL/LocalStack.
+- Evidência estática: `git diff --check` sem erros.
+- 2026-09-01 — fechamento: expiração por TTL persiste
+  `REFERENCE_NOT_FOUND`, grava o evento terminal na outbox e comprova a
+  publicação de `WagerTransactionRejected` na fila real do LocalStack. A
+  dependência da issue 02 foi satisfeita.
+- Evidência: `bun run hardening` em Docker — 79 unitários, 19 integrações e 4
+  testes de concorrência, todos verdes.

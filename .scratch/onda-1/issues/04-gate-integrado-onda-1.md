@@ -15,7 +15,7 @@ um relatório reproduzível que confirme o estado dos bloqueios do roadmap.
 
 ## Acceptance criteria
 
-- [ ] As issues 01, 02 e 03 estão verdes e suas dependências de fechamento foram satisfeitas.
+- [x] As issues 01, 02 e 03 estão verdes e suas dependências de fechamento foram satisfeitas.
 - [ ] A regressão unitária, integração e concorrência passa em uma stack limpa.
 - [ ] O fluxo consumidor → operação → outbox → publicação → referência pendente é demonstrável.
 - [ ] PostgreSQL, LocalStack e pelo menos três réplicas são usados nos cenários exigidos.

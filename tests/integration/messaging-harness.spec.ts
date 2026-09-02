@@ -59,13 +59,24 @@ integration(
         (total, result) => total + result.published,
         0,
       );
+      const retriedCount = publicationResults.reduce(
+        (total, result) => total + result.retried,
+        0,
+      );
+
+      // Integration files run concurrently. Another directed publisher may
+      // legitimately claim one of these rows after it becomes visible, so the
+      // durable database state is the source of truth for no-loss delivery.
+      await harness.publishUntilIdle();
 
       const result = await client.query(
         `SELECT id, published_at, lease_until, lease_token, attempt_count
          FROM outbox_messages WHERE id = ANY($1::uuid[])`,
         [ids],
       );
-      expect(publishedCount).toBe(ids.length);
+      expect(publishedCount).toBeGreaterThan(0);
+      expect(publishedCount).toBeLessThanOrEqual(ids.length);
+      expect(retriedCount).toBe(0);
       expect(result.rows).toHaveLength(ids.length);
       expect(result.rows.every((row) => row.published_at !== null)).toBe(true);
       expect(result.rows.every((row) => row.lease_until === null)).toBe(true);

@@ -17,6 +17,9 @@ const queueUrl =
 const eventQueueUrl =
   process.env.SQS_EVENT_QUEUE_URL ??
   "http://localstack:4566/000000000000/wager-events.fifo";
+const dlqUrl =
+  process.env.SQS_WAGER_DLQ_URL ??
+  "http://localstack:4566/000000000000/wager-transactions-dlq.fifo";
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql://wagering:wagering@postgres:5432/wagering";
@@ -287,6 +290,12 @@ integration("SQS messaging integration", () => {
       );
       expect(ledgerRows.rows).toHaveLength(1);
 
+      const inboxRows = await pgClient.query(
+        "select * from inbox_messages where consumer_name = 'SqsWagerConsumer' and message_id = $1",
+        [messageId],
+      );
+      expect(inboxRows.rows).toHaveLength(1);
+
       const walletRows = await pgClient.query(
         "select * from wallets where id = $1",
         [playerWallet.id],
@@ -302,6 +311,104 @@ integration("SQS messaging integration", () => {
         calculatedBalance: "75.00",
         consistent: true,
       });
+    } finally {
+      await pgClient.end();
+    }
+  });
+
+  test("routes a divergent reuse of messageId to DLQ without a second financial effect", async () => {
+    const playerId = `player-${randomUUID()}`;
+    const playerWallet = await createWallet(playerId, "100.00");
+    const externalTransactionId = `sqs-conflict-${randomUUID()}`;
+    const messageId = `msg-${randomUUID()}`;
+    const envelope = {
+      messageId,
+      type: "WagerTransactionRequested",
+      occurredAt: new Date().toISOString(),
+      data: {
+        idempotencyKey: `idem-${externalTransactionId}`,
+        providerId: "sqs-provider",
+        externalTransactionId,
+        walletId: playerWallet.id,
+        playerId,
+        money: { amount: "10.00", currency: "BRL" },
+        kind: "BET",
+        roundId: `round-${randomUUID()}`,
+        gameId: "conflict-game",
+      },
+    };
+
+    await sqs.send(
+      new SendMessageCommand({
+        QueueUrl: queueUrl,
+        MessageBody: JSON.stringify(envelope),
+        MessageGroupId: playerWallet.id,
+        MessageDeduplicationId: `${messageId}-original`,
+      }),
+    );
+    await harness.consumeOnce();
+
+    await sqs.send(
+      new SendMessageCommand({
+        QueueUrl: queueUrl,
+        MessageBody: JSON.stringify({
+          ...envelope,
+          occurredAt: new Date().toISOString(),
+          data: {
+            ...envelope.data,
+            money: { amount: "11.00", currency: "BRL" },
+          },
+        }),
+        MessageGroupId: playerWallet.id,
+        MessageDeduplicationId: `${messageId}-divergent`,
+      }),
+    );
+    await harness.consumeOnce();
+
+    const dlqMessage = await waitFor(async () => {
+      const response = await sqs.send(
+        new ReceiveMessageCommand({
+          QueueUrl: dlqUrl,
+          MaxNumberOfMessages: 10,
+          WaitTimeSeconds: 1,
+        }),
+      );
+      const match = response.Messages?.find((message) =>
+        message.Body?.includes(messageId),
+      );
+
+      if (match?.ReceiptHandle) {
+        await sqs.send(
+          new DeleteMessageCommand({
+            QueueUrl: dlqUrl,
+            ReceiptHandle: match.ReceiptHandle,
+          }),
+        );
+      }
+      return match ?? null;
+    });
+    expect(dlqMessage).toBeDefined();
+
+    const pgClient = new Client({ connectionString: databaseUrl });
+    await pgClient.connect();
+    try {
+      const transactions = await pgClient.query(
+        "select id from wager_transactions where provider_id = 'sqs-provider' and external_transaction_id = $1",
+        [externalTransactionId],
+      );
+      expect(transactions.rows).toHaveLength(1);
+
+      const ledger = await pgClient.query(
+        "select id from wallet_ledger_entries where transaction_id = $1",
+        [transactions.rows[0].id],
+      );
+      expect(ledger.rows).toHaveLength(1);
+
+      const wallet = await pgClient.query(
+        "select balance from wallets where id = $1",
+        [playerWallet.id],
+      );
+      expect(wallet.rows[0].balance).toBe("90.00");
     } finally {
       await pgClient.end();
     }

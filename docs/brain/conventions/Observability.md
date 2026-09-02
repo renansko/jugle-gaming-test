@@ -6,7 +6,7 @@ JSON estruturado com `correlationId`, `messageId`, `transactionId`, `walletId` e
 
 ## OpenTelemetry & Métricas
 
-Instrumentação baseada no OpenTelemetry API (`@opentelemetry/api`) através de [OpenTelemetryBridge](file:///d:/projetos/testes/junglegaming/src/infrastructure/observability/opentelemetry.ts).
+Instrumentação baseada no OpenTelemetry API (`@opentelemetry/api`) através de [OpenTelemetryBridge](../../../src/infrastructure/observability/opentelemetry.ts).
 
 ### Instrumentos e Séries:
 - `wager_transactions_total`: contador de transações por `kind` e `status`;
@@ -27,4 +27,3 @@ Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de c
 
 - `GET /health/live`: Liveness verifica o event loop e o processo.
 - `GET /health/ready`: Readiness verifica PostgreSQL (pool e query ativa) e LocalStack SQS (list queues).
-
