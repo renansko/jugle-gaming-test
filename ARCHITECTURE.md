@@ -56,3 +56,23 @@ Consultas e reconciliação não alteram lançamentos. Divergências são retorn
 ## Trade-offs
 
 O lock pessimista simplifica a prova de correção e favorece o desafio, ao custo de serializar operações da mesma wallet. A solução evita microserviços, Kafka, cache distribuído e autenticação completa para manter o foco no núcleo financeiro. Partidas dobradas e OpenTelemetry completo permanecem diferenciais posteriores.
+
+## Medição da carga curta
+
+A carga mede a API a partir do cliente enquanto o Prometheus coleta sinais
+internos das réplicas. A latência financeira é um histograma cumulativo; o
+Grafana calcula p50/p95/p99 com `histogram_quantile`, em vez de tratar o último
+valor observado como distribuição. Throughput não possui gate mínimo: erro
+técnico e quebra de invariante falham o ensaio, desempenho apenas é reportado.
+
+```mermaid
+flowchart LR
+    Load["Carga curta (cliente)"] --> Apps["Aplicação (3+ réplicas)"]
+    Apps --> PG["PostgreSQL (wallet + ledger + outbox)"]
+    Apps --> SQS["LocalStack SQS"]
+    Prom["Prometheus"] -->|"scrape /metrics"| Apps
+    Prom --> Grafana["Grafana provisionado"]
+    Apps -->|"counters + histogramas"| Prom
+    Load -->|"p50/p95/p99 + categorias"| Report["Relatório versionável"]
+    PG -->|"reconciliação e contagens"| Report
+```

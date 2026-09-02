@@ -55,9 +55,9 @@
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       },
-      "title": "Total Wager Transactions",
+      "title": "Throughput (transactions/s)",
       "type": "stat",
-      "targets": [{ "expr": "sum(wager_transactions_total)", "refId": "A" }]
+      "targets": [{ "expr": "sum(rate(wager_transactions_total[1m]))", "refId": "A" }]
     },
     {
       "datasource": "Prometheus",
@@ -102,9 +102,13 @@
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
       },
-      "title": "Processing Latency (ms)",
-      "type": "stat",
-      "targets": [{ "expr": "wager_processing_latency_ms", "refId": "A" }]
+      "title": "Processing Latency p50 / p95 / p99",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(wager_processing_latency_ms_bucket[1m])))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(wager_processing_latency_ms_bucket[1m])))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(wager_processing_latency_ms_bucket[1m])))", "legendFormat": "p99", "refId": "C" }
+      ]
     },
     {
       "collapsed": false,
@@ -132,6 +136,60 @@
       "targets": [
         { "expr": "wallet_lock_duration_ms", "legendFormat": "Lock duration (ms)", "refId": "A" }
       ]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 15 },
+      "id": 9,
+      "title": "Technical failure rate",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(rate(wager_transactions_total{status=~\"FAILED|ERROR\"}[1m]))", "refId": "A" }]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 15 },
+      "id": 10,
+      "title": "Business rejection rate",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(rate(wager_transactions_total{status=\"REJECTED\"}[1m]))", "refId": "A" }]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 15 },
+      "id": 11,
+      "title": "Concurrency / idempotency conflicts",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(rate(idempotency_replays_total[1m]))", "refId": "A" }]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 22 },
+      "id": 12,
+      "title": "Outbox pending and lag",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "outbox_pending", "legendFormat": "pending", "refId": "A" },
+        { "expr": "outbox_lag_ms", "legendFormat": "lag ms", "refId": "B" }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 22 },
+      "id": 13,
+      "title": "SQS retries and DLQ",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum(rate(sqs_retries_total[1m]))", "legendFormat": "retries", "refId": "A" },
+        { "expr": "sum(rate(sqs_dlq_total[1m]))", "legendFormat": "DLQ", "refId": "B" }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 22 },
+      "id": 14,
+      "title": "Reconciliation divergences",
+      "type": "timeseries",
+      "targets": [{ "expr": "reconciliation_divergences_total", "refId": "A" }]
     }
   ],
   "refresh": "2s",

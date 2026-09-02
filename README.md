@@ -213,3 +213,61 @@ O CI comprova que essas séries são expostas e que os cenários funcionais
 permanecem verdes. Throughput e p50/p95/p99 ainda não foram medidos; esses
 números exigem um ensaio de carga controlado e não são inferidos da suíte
 funcional.
+
+## 9. Carga curta reproduzível
+
+```mermaid
+flowchart LR
+    Command["bun run test:load"] --> Replicas["3 réplicas reais"]
+    Replicas --> Dependencies["PostgreSQL + LocalStack"]
+    Replicas --> Metrics["Prometheus + Grafana"]
+    Dependencies --> Evidence["Relatório + invariantes"]
+```
+
+Em uma stack limpa, execute:
+
+```bash
+docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --build --wait postgres localstack
+docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm app bun run migration:up
+docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --scale app=3 app prometheus grafana
+docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm --no-deps test bun run test:load
+```
+
+O perfil padrão aquece por 2 s e mede 10 s com concorrência 8. A execução
+versionada obteve 128,4 operações/s, p50 de 61,78 ms, p95 de 106,37 ms e p99
+de 127,06 ms, sem falha técnica. A outbox chegou a 1.418 pendências e convergiu
+a zero; oito wallets reconciliaram saldo e ledger. Não existe gate mínimo de
+RPS: desempenho é reportado, enquanto erro técnico ou quebra de invariante
+falha o comando.
+
+Veja o [relatório completo](docs/load/short-load-report.md), o
+[job público de CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
+o [Grafana local](http://localhost:3001) e o contexto das issues
+[#11](https://github.com/renansko/jugle-gaming-test/issues/11) e
+[#12](https://github.com/renansko/jugle-gaming-test/issues/12). Os resultados
+são locais, curtos e dependentes do host; não equivalem a um SLO de produção.
+
+## 10. Evidências dos testes da issue #13
+
+```mermaid
+flowchart LR
+    CI["CI e execução local"] --> Catalog["Catálogo de evidências"]
+    Catalog --> Unit["Testes unitários"]
+    Catalog --> Integration["Testes de integração"]
+    Catalog --> Concurrency["Testes de concorrência"]
+    Catalog --> Load["Carga curta"]
+```
+
+As evidências públicas referentes à
+[issue #13](https://github.com/renansko/jugle-gaming-test/issues/13) estão
+organizadas por tipo de validação:
+
+- [Catálogo e critérios de leitura](evidencias/README.md);
+- [testes unitários](evidencias/testes-unitarios.md);
+- [testes de integração](evidencias/testes-integracao.md);
+- [testes de concorrência](evidencias/testes-concorrencia.md);
+- [carga curta e invariantes finais](evidencias/carga-curta.md).
+
+Os arquivos registram comandos reproduzíveis, resultados observados, limites e
+links para as fontes. O histórico público do CI continua sendo a fonte para
+execuções em máquinas limpas; números versionados não representam um SLO.

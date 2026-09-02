@@ -13,7 +13,8 @@ Instrumentação baseada no OpenTelemetry API (`@opentelemetry/api`) através de
 - `idempotency_replays_total`: contador de replays idempotentes bem-sucedidos;
 - `reconciliation_divergences_total`: contador de divergências detectadas;
 - `wallet_lock_duration_ms`: gauge do tempo sob lock `PESSIMISTIC_WRITE`;
-- `wager_processing_latency_ms`: gauge de latência do processamento financeiro;
+- `wager_processing_latency_ms`: histograma da latência financeira com buckets,
+  soma e contagem; percentis nunca são inferidos do último valor;
 - `outbox_pending` e `outbox_lag_ms`: medidores da fila de eventos da outbox.
 
 Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de conteúdo (formato texto padrão Prometheus e JSON).
@@ -21,7 +22,10 @@ Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de c
 ## Dashboards Visuais
 
 - **Dashboard Web Embutido (`/dashboard`)**: UI responsiva (Dark Mode, Glassmorphism) servida diretamente pelo NestJS na porta `3000`, atualizada em tempo real a cada 2s via polling de `/metrics` e `/health/ready`.
-- **Grafana + Prometheus (`compose.yaml`)**: Grafana pré-configurado na porta `3001` e Prometheus na porta `9090` com scrapers e dashboard JSON provisionado.
+- **Grafana + Prometheus (`compose.yaml`)**: Grafana pré-configurado na porta
+  `3001` e Prometheus na porta `9090`. O dashboard provisionado deriva
+  throughput e p50/p95/p99 de counters e histogramas, além de mostrar falhas,
+  rejeições, conflitos, locks, retries, DLQ, reconciliação e outbox.
 
 ## Saúde (Health Checks)
 

@@ -30,3 +30,20 @@ jobs:
       - run: docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test bun run hardening
       - if: always()
         run: docker compose -f compose.yaml -f compose.hardening.yaml down -v
+
+  load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --build --wait postgres localstack
+      - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm app bun run migration:up
+      - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --scale app=3 app prometheus grafana
+      - name: Run reproducible short load
+        run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm --no-deps -e GITHUB_SHA -e LOAD_DOCKER_VERSION="$(docker --version)" test bun run test:load
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-report
+          path: artifacts/load-report.*
+      - if: always()
+        run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml down -v

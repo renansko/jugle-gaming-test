@@ -14,6 +14,7 @@
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration --timeout 30000",
     "test:concurrency": "bun test tests/concurrency --timeout 30000",
+    "test:load": "bun run scripts/load/run-short-load.ts",
     "check": "bun run lint && bun run typecheck && bun run test:unit",
     "verify:database": "bun run scripts/verify-database.ts",
     "test:brain-links": "bun run scripts/validate-brain-links.ts",

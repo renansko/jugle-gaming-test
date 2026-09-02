@@ -42,10 +42,16 @@ worker, reconciliação e rejeição terminal publicada para órfãos expirados.
 
 Depois de um commit, a reentrega encontra inbox/idempotência e não recria efeito. Se a publicação falhar, o registro da outbox permanece elegível depois do lease e outro publisher o reivindica. Payload inválido ou conflito de `messageId` segue para a DLQ; consulte `docs/runbooks/Operations.md` antes de qualquer ação manual.
 
+## Carga curta
+
+O comando `bun run test:load`, documentado no README, mede uma massa isolada em
+três réplicas, valida contagens e reconciliação e exige convergência da outbox.
+O CI publica `artifacts/load-report.*`; desempenho não é gate de aprovação.
+
 ## Limitações atuais
 
 Não há meta artificial de RPS, double-entry ledger, IdP completo ou deploy AWS.
-A carga e métricas p50/p95/p99 continuam opcionais. Entrega SQS/outbox é
+Entrega SQS/outbox é
 `at-least-once`; consumidores downstream devem deduplicar pelo ID estável do
 evento. Lifecycle completo de processo e a matriz ampla de crash/restart
 permanecem nos gates posteriores, não cobertos pelo fechamento da Onda 1.

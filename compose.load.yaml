@@ -1,0 +1,8 @@
+services:
+  app:
+    environment:
+      TEST_WORKERS_AUTOSTART: "true"
+
+  test:
+    volumes:
+      - ./artifacts:/app/artifacts

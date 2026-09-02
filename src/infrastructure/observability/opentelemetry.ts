@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import {
   type Counter,
   type Gauge,
+  type Histogram,
   type Meter,
   type Span,
   type SpanOptions,
@@ -19,6 +20,7 @@ export class OpenTelemetryBridge {
   private readonly meter: Meter;
   private readonly otelCounters = new Map<string, Counter>();
   private readonly otelGauges = new Map<string, Gauge>();
+  private readonly otelHistograms = new Map<string, Histogram>();
 
   public constructor() {
     const serviceName = "junglegaming-processor";
@@ -86,5 +88,18 @@ export class OpenTelemetryBridge {
       this.otelGauges.set(name, gauge);
     }
     gauge.record(value, attributes as Record<string, string>);
+  }
+
+  public recordHistogram(
+    name: string,
+    value: number,
+    attributes: MetricAttributes = {},
+  ): void {
+    let histogram = this.otelHistograms.get(name);
+    if (!histogram) {
+      histogram = this.meter.createHistogram(name, { unit: "ms" });
+      this.otelHistograms.set(name, histogram);
+    }
+    histogram.record(value, attributes as Record<string, string>);
   }
 }

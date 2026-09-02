@@ -23,3 +23,4 @@
 - 2026-09-01 | Observabilidade & OpenTelemetry | Implementação de OpenTelemetry API, exportação Prometheus padrão e JSON, dashboard web embutido em `/dashboard` e stack Grafana/Prometheus provisionada no Docker Compose.
 - 2026-09-01 | Onda 1 / issues 01–03 | Consumidor SQS, outbox recuperável e referências pendentes fechados com provas TDD; hardening validou 79 testes unitários, 19 de integração e 4 de concorrência em PostgreSQL/LocalStack e três réplicas.
 - 2026-09-02 | Onda 1 / issue 04 | Gate integrado reexecutado em stack limpa; migrations reversíveis, fluxo SQS–operação–outbox–publicação–referência, 79 testes unitários, 19 de integração, 4 de concorrência, índices e links do Brain verdes em três réplicas.
+- 2026-09-02 | ISSUE-13 | Carga curta reproduzível em três réplicas com relatório, reconciliação, contagens e convergência da outbox; latência promovida a histograma e dashboard/CI ampliados.
