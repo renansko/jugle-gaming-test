@@ -9,6 +9,8 @@ export class OutboxMessageEntity {
   @Property({ fieldName: "attempt_count" }) attemptCount!: number;
   @Property({ fieldName: "next_attempt_at" }) nextAttemptAt!: Date;
   @Property({ fieldName: "lease_until", nullable: true }) leaseUntil?: Date;
+  @Property({ fieldName: "lease_token", nullable: true, type: "uuid" })
+  leaseToken?: string;
   @Property({ fieldName: "published_at", nullable: true }) publishedAt?: Date;
   @Property({ fieldName: "created_at" }) createdAt!: Date;
 }

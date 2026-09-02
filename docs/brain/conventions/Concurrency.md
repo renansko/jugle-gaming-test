@@ -14,7 +14,11 @@ Bloquear wallet e registros de referência em ordem determinística. Uniques con
 
 ## Outbox
 
-Publishers reivindicam registros com `FOR UPDATE SKIP LOCKED` e lease recuperável. O lock não atravessa a chamada SQS.
+Publishers reivindicam registros com `FOR UPDATE SKIP LOCKED` e lease
+recuperável dentro de uma transação curta. O commit ocorre antes da chamada
+SQS. A finalização verifica o `lease_token`; depois da expiração, o publisher
+antigo pode causar uma duplicação at-least-once, mas não pode sobrescrever o
+novo owner.
 
 ## Retry
 
@@ -23,4 +27,3 @@ Deadlock ou falha de serialização recebe retry limitado, exponencial e com jit
 ## Evidência
 
 Testes usam paralelismo real e pelo menos três processos. O caso 100 - 80 - 80 deve produzir um processado, um rejeitado, saldo 20 e um ledger debit.
-
