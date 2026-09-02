@@ -14,3 +14,9 @@
 - 2026-08-31 | ISSUE-01.4, 01.5, 01.6 | Conclusão e validação da suíte TDD completa de integração SQS/DLQ, referências fora de ordem, reconciliação/métricas e concorrência multi-instância (hardening green).
 - 2026-09-01 | Qualidade & Diretrizes | Refatoração de legibilidade/clean code em todas as camadas e formalização da regra de Complexidade Ciclomática Máxima 6 em AGENTS.md, CLAUDE.md e GEMINI.md.
 - 2026-09-01 | Onda 0 / WalletLedger | Wallet segue aggregate root e projeção bloqueada; flush ordenado de wallet, transação e ledger preserva FKs dentro de um commit atômico e permite reconciliação pelo ledger.
+- 2026-09-01 | Onda 0 | Workers automáticos desabilitados por padrão no ambiente de teste; harness dirigido mantém PostgreSQL e LocalStack reais.
+- 2026-09-01 | Onda 0 | Hardening dirigido validado três vezes na mesma stack; referências convergem, outbox é drenada sem resíduos e métricas obrigatórias existem desde o bootstrap.
+- 2026-09-01 | Onda 1 / ISSUE-01 | Consumidor SQS normaliza o envelope, compartilha hash canônico financeiro com o serviço e preserva atomicidade inbox/operação/ledger/outbox antes de ACK, retry ou DLQ.
+- 2026-09-01 | ISSUE-03 | Claim recuperável de referências pendentes trata agenda nula como elegível e mantém lease/backoff/tentativas persistidos.
+- 2026-09-01 | PEND-01 | Alinhamento de DTOs polimórficos (initialBalance, money, gameId), persistência e hash canônico de gameId, enriquecimento de entidades de domínio (Money, WagerTransaction, InboxMessage, OutboxMessage), migração 000500 e cobertura de integração dos 8 endpoints com status 200, 201, 400, 404, 409 e 422.
+- 2026-09-01 | ISSUE-02 | Publisher outbox com claim transacional `SKIP LOCKED`, lease/token recuperável, SQS fora do lock SQL, retry com backoff, finalização parcial e duplicação at-least-once em resultado ambíguo.

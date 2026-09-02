@@ -1,21 +1,18 @@
+import { createHash } from "node:crypto";
 import {
   ChangeMessageVisibilityCommand,
   DeleteMessageCommand,
   ReceiveMessageCommand,
-  SendMessageCommand,
   SQSClient,
+  SendMessageCommand,
 } from "@aws-sdk/client-sqs";
 import { Inject, Injectable } from "@nestjs/common";
-import { createHash } from "node:crypto";
 import { z } from "zod";
+import { canonicalWagerPayloadHash } from "../../application/wagering/canonical-payload";
 import {
   type ProcessWagerInput,
   WageringService,
 } from "../../application/wagering/wagering.service";
-import {
-  canonicalPayloadHash,
-  type CanonicalValue,
-} from "../../application/wagering/canonical-payload";
 import { DomainError } from "../../domain/shared/domain-error";
 import { AppConfig } from "../config/app-config";
 import { OperationalMetrics } from "../observability/operational-metrics";
@@ -32,13 +29,35 @@ const envelopeSchema = z
         externalTransactionId: z.string(),
         walletId: z.string().uuid(),
         playerId: z.string(),
-        currency: z.string().regex(/^[A-Z]{3}$/),
-        amount: z.string(),
+        currency: z
+          .string()
+          .regex(/^[A-Z]{3}$/)
+          .optional(),
+        amount: z.string().optional(),
+        money: z
+          .object({
+            amount: z.string(),
+            currency: z.string().regex(/^[A-Z]{3}$/),
+          })
+          .strict()
+          .optional(),
         kind: z.enum(["BET", "WIN", "LOSS", "REFUND", "ROLLBACK"]),
         roundId: z.string(),
+        gameId: z.string().optional(),
         referenceExternalTransactionId: z.string().optional(),
       })
-      .strict(),
+      .strict()
+      .superRefine((value, context) => {
+        const hasMoney = Boolean(value.money);
+        const hasAmountCurrency = Boolean(value.amount && value.currency);
+        if (!hasMoney && !hasAmountCurrency) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Either amount and currency or money object is required",
+            path: ["amount"],
+          });
+        }
+      }),
   })
   .strict();
 
@@ -132,9 +151,8 @@ export class SqsWagerConsumer {
       return;
     }
 
-    const payloadHash = canonicalPayloadHash(
-      envelope as unknown as CanonicalValue,
-    );
+    const wagerInput: ProcessWagerInput = this.toWagerInput(envelope);
+    const payloadHash = canonicalWagerPayloadHash(wagerInput);
     const sentAt = Number(attributes?.SentTimestamp ?? Date.now());
     this.metrics.observe(
       "sqs_message_age_ms",
@@ -156,18 +174,15 @@ export class SqsWagerConsumer {
       : undefined;
 
     try {
-      const output = await this.wagering.execute(
-        envelope.data as ProcessWagerInput,
-        {
-          correlationId: envelope.messageId,
-          causationId: envelope.messageId,
-          inbox: {
-            consumerName: "SqsWagerConsumer",
-            messageId: envelope.messageId,
-            payloadHash,
-          },
+      const output = await this.wagering.execute(wagerInput, {
+        correlationId: envelope.messageId,
+        causationId: envelope.messageId,
+        inbox: {
+          consumerName: "SqsWagerConsumer",
+          messageId: envelope.messageId,
+          payloadHash,
         },
-      );
+      });
 
       if (output.idempotentReplay) {
         this.metrics.increment("inbox_duplicates_total");
@@ -184,6 +199,24 @@ export class SqsWagerConsumer {
     if (receiptHandle) {
       await this.deleteProcessedMessage(receiptHandle);
     }
+  }
+
+  private toWagerInput(envelope: SqsWagerEnvelope): ProcessWagerInput {
+    const money = envelope.data.money;
+    return {
+      idempotencyKey: envelope.data.idempotencyKey,
+      providerId: envelope.data.providerId,
+      externalTransactionId: envelope.data.externalTransactionId,
+      walletId: envelope.data.walletId,
+      playerId: envelope.data.playerId,
+      currency: money?.currency ?? (envelope.data.currency as string),
+      amount: money?.amount ?? (envelope.data.amount as string),
+      kind: envelope.data.kind,
+      roundId: envelope.data.roundId,
+      gameId: envelope.data.gameId,
+      referenceExternalTransactionId:
+        envelope.data.referenceExternalTransactionId,
+    };
   }
 
   private async handleProcessingError(

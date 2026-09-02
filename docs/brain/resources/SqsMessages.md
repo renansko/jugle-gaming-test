@@ -23,3 +23,6 @@ Campos desconhecidos no envelope são rejeitados para evitar interpretação amb
 
 Long polling, visibility timeout maior que o p99 esperado e extensão controlada para mensagens longas. Erro de negócio faz ack; falha transitória não faz ack; após `maxReceiveCount`, a mensagem segue para DLQ.
 
+O consumidor normaliza `money` e `amount/currency` para o contrato financeiro
+antes de calcular o hash da inbox. `messageId`, tipo e `occurredAt` são apenas
+metadados de transporte e não alteram a identidade do payload.

@@ -16,7 +16,7 @@ import {
   WagerTransactionProcessed,
   WagerTransactionRejected,
 } from "../../domain/messaging/integration-event";
-import { canonicalPayloadHash } from "./canonical-payload";
+import { canonicalWagerPayloadHash } from "./canonical-payload";
 import { OperationalMetrics } from "../../infrastructure/observability/operational-metrics";
 
 export type WagerKind = "BET" | "WIN" | "LOSS" | "REFUND" | "ROLLBACK";
@@ -31,6 +31,7 @@ export interface ProcessWagerInput {
   amount: string;
   kind: WagerKind;
   roundId: string;
+  gameId?: string;
   referenceExternalTransactionId?: string;
 }
 
@@ -38,12 +39,14 @@ export interface ProcessWagerOutput {
   id: string;
   status: string;
   failureCode?: string;
+  gameId?: string;
   balance: {
     amount: string;
     currency: string;
   };
   idempotentReplay: boolean;
 }
+
 
 export interface InboxContext {
   consumerName: string;
@@ -73,18 +76,11 @@ export class WageringService {
   ): Promise<ProcessWagerOutput> {
     const startedAt = Date.now();
     const amount = Money.create(input.amount, input.currency);
-    const payloadHash = canonicalPayloadHash({
+    const payloadHash = canonicalWagerPayloadHash({
+      ...input,
       amount: amount.amount,
-      currency: input.currency,
-      externalTransactionId: input.externalTransactionId,
-      kind: input.kind,
-      playerId: input.playerId,
-      providerId: input.providerId,
-      referenceExternalTransactionId:
-        input.referenceExternalTransactionId ?? null,
-      roundId: input.roundId,
-      walletId: input.walletId,
     });
+
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
@@ -273,8 +269,10 @@ export class WageringService {
       amount: amount.amount,
       kind: input.kind,
       roundId: input.roundId,
+      gameId: input.gameId,
       referenceExternalTransactionId: input.referenceExternalTransactionId,
       status: "PENDING",
+
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -336,25 +334,51 @@ export class WageringService {
     throw error;
   }
 
-  public async get(id: string): Promise<ProcessWagerOutput | null> {
+  public async get(id: string): Promise<Record<string, unknown> | null> {
     const transaction = await this.orm.em
       .fork()
       .findOne(WagerTransactionEntity, { id });
-    return transaction ? this.output(transaction, false) : null;
+    return transaction ? this.serializeTransaction(transaction) : null;
   }
 
   public async getByProvider(
     providerId: string,
     externalTransactionId: string,
-  ): Promise<ProcessWagerOutput | null> {
+  ): Promise<Record<string, unknown> | null> {
     const transaction = await this.orm.em
       .fork()
       .findOne(WagerTransactionEntity, {
         providerId,
         externalTransactionId,
       });
-    return transaction ? this.output(transaction, false) : null;
+    return transaction ? this.serializeTransaction(transaction) : null;
   }
+
+  private serializeTransaction(
+    transaction: WagerTransactionEntity,
+  ): Record<string, unknown> {
+    return {
+      id: transaction.id,
+      providerId: transaction.providerId,
+      externalTransactionId: transaction.externalTransactionId,
+      walletId: transaction.walletId,
+      playerId: transaction.playerId,
+      kind: transaction.kind,
+      roundId: transaction.roundId,
+      gameId: transaction.gameId,
+      status: transaction.status,
+      failureCode: transaction.failureCode,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      balance: {
+        amount: transaction.observedBalance ?? "0.00",
+        currency: transaction.currency ?? "XXX",
+      },
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
+    };
+  }
+
 
   /** Reapplies a claimed pending reversal. The worker owns scheduling and expiry. */
   public async resolvePendingReference(
@@ -412,10 +436,12 @@ export class WageringService {
           amount: transaction.amount,
           kind: transaction.kind as WagerKind,
           roundId: transaction.roundId,
+          gameId: transaction.gameId,
           referenceExternalTransactionId:
             transaction.referenceExternalTransactionId,
         },
       );
+
 
       walletEntity.balance = wallet.balance.amount;
       walletEntity.version = wallet.version;
@@ -433,7 +459,7 @@ export class WageringService {
 
       transaction.nextReferenceAttemptAt = undefined;
       this.stageEvents(entityManager, transaction, wallet, context);
-      await entityManager.persistAndFlush([transaction, walletEntity]);
+      await entityManager.flush();
 
       return "resolved";
     });
@@ -475,11 +501,12 @@ export class WageringService {
       transaction.updatedAt = new Date();
 
       this.stageEvents(entityManager, transaction, domainWallet, context);
-      await entityManager.persistAndFlush(transaction);
+      await entityManager.flush();
 
       return true;
     });
   }
+
 
   private async apply(
     entityManager: EntityManager,
@@ -503,10 +530,7 @@ export class WageringService {
         input,
       );
 
-      if (
-        transaction.status === "PENDING_REFERENCE" ||
-        transaction.status === "REJECTED"
-      ) {
+      if (!reference || transaction.status === "REJECTED") {
         return;
       }
     }
@@ -711,6 +735,7 @@ export class WageringService {
       id: transaction.id,
       status: transaction.status,
       failureCode: transaction.failureCode,
+      gameId: transaction.gameId,
       balance: {
         amount: transaction.observedBalance ?? "0.00",
         currency: transaction.currency ?? "XXX",
@@ -718,6 +743,7 @@ export class WageringService {
       idempotentReplay,
     };
   }
+
 
   private recordOutput(
     transaction: WagerTransactionEntity,
