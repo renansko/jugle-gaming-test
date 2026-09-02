@@ -1,147 +1,165 @@
 # Distributed Wagering Processor
 
-Planejamento de um serviço financeiro distribuído para processar apostas de múltiplos provedores, baseado no [desafio da Jungle Gaming](https://github.com/junglegaming/backend-challenge). A documentação segue a proposta de wiki enxuta do [LLM Brain Backend](https://github.com/renansko/llm-brain-backend).
+Serviço financeiro distribuído para processar apostas com consistência, idempotência e rastreabilidade.
 
-## Stack decidida
+## 1. Monte o ambiente
 
-| Área | Escolha |
-|---|---|
-| Runtime, pacotes e testes | Bun 1.x |
-| Linguagem | TypeScript estrito |
-| Framework | NestJS |
-| Persistência | PostgreSQL + MikroORM |
-| Mensageria | AWS SQS FIFO via LocalStack |
-| Ambiente local | Docker Compose |
-| Migrations | MikroORM, versionadas com `up` e `down` |
-
-## Comece aqui
-
-1. [Plano de entrega](docs/DELIVERY_PLAN.md) — fases, critérios e sequência de implementação.
-2. [Arquitetura](ARCHITECTURE.md) — decisões, limites e estratégia transacional.
-3. [Brain](docs/brain/index.md) — mapa de domínio, contratos e convenções.
-4. [ISSUE-01](prd/issue-01/README.md) — backlog executável derivado do plano de entrega.
-
-## Objetivo técnico
-
-Preservar, com múltiplas instâncias e entrega `at-least-once`, estas invariantes:
-
-- dinheiro nunca usa ponto flutuante;
-- saldo nunca fica negativo;
-- cada mudança de saldo corresponde a exatamente um lançamento imutável;
-- reentregas não duplicam efeitos;
-- eventos só ficam publicáveis após o commit financeiro;
-- o saldo materializado sempre pode ser reconciliado com o ledger.
-
-## Escopo inicial
-
-O MVP inclui API HTTP, consumidor SQS, inbox/outbox transacionais, reprocessamento de referências, DLQ, reconciliação, health checks, métricas e testes reais de concorrência. Autenticação será representada por uma porta/guard sem implementação de IdP no primeiro timebox.
-
-## Estrutura planejada do código
-
-```text
-src/
-├── domain/          # Entidades, value objects, eventos e erros puros
-├── application/     # Casos de uso e portas
-├── infrastructure/  # MikroORM, PostgreSQL, SQS, workers e telemetria
-└── interfaces/      # HTTP, DTOs, validação e composição NestJS
-tests/
-├── unit/
-├── integration/
-├── concurrency/
-└── fixtures/
-```
-
-## Executar localmente
-
-Pré-requisitos: Docker Desktop com Compose v2. O container da aplicação traz o Bun 1.1.38, portanto não exige instalação local do runtime.
+Você precisa apenas do **Docker Desktop com Compose v2**. O Bun já está na imagem da aplicação.
 
 ```sh
 cp .env.example .env
 docker compose up --build
 ```
 
-Serviços: aplicação em `http://localhost:3000`, PostgreSQL interno, LocalStack em `http://localhost:4566` e SQS Admin UI em `http://localhost:8080`. O bootstrap do LocalStack cria `wager-transactions.fifo` e `wager-transactions-dlq.fifo`; a primeira usa a segunda como DLQ.
-
-Em outro terminal, confira a aplicação:
+Espere os serviços ficarem saudáveis e valide:
 
 ```sh
 curl http://localhost:3000/health/live
 curl http://localhost:3000/health/ready
 ```
 
-Com Bun instalado localmente, os comandos reproduzíveis são:
+```mermaid
+flowchart LR
+    Clone["Projeto local"] --> Env["Copiar .env.example"]
+    Env --> Compose["docker compose up --build"]
+    Compose --> Ready{"/health/ready está ok?"}
+    Ready -->|"Sim"| Use["Ambiente pronto"]
+    Ready -->|"Não"| Logs["docker compose logs"]
+```
+
+Para encerrar, use `docker compose down`. Para também apagar os dados locais do PostgreSQL, use `docker compose down -v`.
+
+## 2. Acesse o ambiente
+
+| O que | Endereço | Como usar |
+|---|---|---|
+| Dashboard da aplicação | <http://localhost:3000/dashboard> | Visão rápida da saúde e operação |
+| API HTTP | <http://localhost:3000> | Wallets e transações de apostas |
+| Health | <http://localhost:3000/health/ready> | Confirma PostgreSQL e SQS |
+| Métricas | <http://localhost:3000/metrics> | Formato Prometheus ou JSON via `Accept` |
+| Grafana | <http://localhost:3001> | Login local `admin` / `admin` |
+| Prometheus | <http://localhost:9090> | Consultas e targets de métricas |
+| LocalStack | <http://localhost:4566> | Emulação local do AWS SQS |
+
+As credenciais `test` da AWS e `admin/admin` do Grafana são exclusivas do ambiente local.
+
+```mermaid
+flowchart TD
+    Dev["Você"] --> Dashboard["Dashboard :3000/dashboard"]
+    Dev --> API["API :3000"]
+    Dev --> Grafana["Grafana :3001"]
+    API --> Postgres["PostgreSQL interno"]
+    API --> SQS["LocalStack SQS :4566"]
+    Grafana --> Prometheus["Prometheus :9090"]
+    Prometheus --> Metrics["API /metrics"]
+```
+
+## 3. Entenda o que temos
+
+O sistema recebe operações por HTTP ou SQS, aplica a regra financeira uma única vez e registra saldo, ledger e evento na mesma transação do PostgreSQL.
+
+```mermaid
+flowchart LR
+    HTTP["HTTP"] --> Core["WageringService"]
+    InputQueue["SQS de apostas"] --> Consumer["Consumer"]
+    Consumer --> Core
+    Core --> DB[("PostgreSQL")]
+    DB --> Outbox["Outbox Publisher"]
+    Outbox --> EventQueue["SQS de eventos"]
+    Reconcile["Reconciliação"] --> DB
+```
+
+| Parte | Responsabilidade | Onde entender |
+|---|---|---|
+| Domínio | Dinheiro, carteira, transação e ledger | [`src/domain`](src/domain), [Brain](docs/brain/index.md) |
+| Aplicação | Casos de uso financeiros | [`src/application`](src/application) |
+| Infraestrutura | PostgreSQL, SQS, workers e métricas | [`src/infrastructure`](src/infrastructure) |
+| Interface HTTP | Endpoints, DTOs e health checks | [`src/interfaces/http`](src/interfaces/http) |
+| Testes | Unidade, integração e concorrência | [`tests`](tests) |
+
+Stack: Bun 1.1.38, TypeScript, NestJS, PostgreSQL 16, MikroORM, SQS FIFO via LocalStack, Prometheus e Grafana.
+
+## 4. Use a API e as filas
+
+Os contratos completos estão em [HttpApi](docs/brain/resources/HttpApi.md) e [SqsMessages](docs/brain/resources/SqsMessages.md).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Cliente ou provedor
+    participant Entry as HTTP ou SQS
+    participant App as Aplicação
+    participant DB as PostgreSQL
+    participant Events as SQS de eventos
+    Client->>Entry: Envia operação com referência única
+    Entry->>App: Valida e processa
+    App->>DB: Salva transação, ledger e outbox
+    DB-->>App: Commit
+    App-->>Client: Retorna ou confirma processamento
+    App->>Events: Publica evento da outbox
+```
+
+Endpoints principais:
+
+- `POST /wallets` e `GET /wallets/:walletId`;
+- `GET /wallets/:walletId/ledger`;
+- `POST /wagering/transactions`;
+- `GET /wagering/transactions/:transactionId`;
+- `GET /providers/:providerId/wagering/transactions/:externalTransactionId`.
+
+Para inspecionar as filas sem instalar ferramentas no host:
+
+```sh
+docker compose exec localstack awslocal sqs list-queues
+```
+
+Filas criadas no bootstrap:
+
+- `wager-transactions.fifo` — entrada de operações;
+- `wager-transactions-dlq.fifo` — mensagens que excederam as tentativas;
+- `wager-events.fifo` — eventos produzidos pela aplicação.
+
+## 5. Desenvolva e valide
+
+Toda mudança segue **Red → Green → Refactor**. Consulte [Testing](docs/brain/conventions/Testing.md) antes de alterar contratos.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Red: Escrever teste que falha
+    Red --> Green: Implementar o mínimo
+    Green --> Refactor: Melhorar com testes verdes
+    Refactor --> Red: Próximo comportamento
+    Refactor --> [*]: Mudança concluída
+```
+
+Com Bun instalado localmente:
 
 ```sh
 bun install
 bun run check
-bun run migration:fresh
 bun run test:integration
+bun run test:concurrency
+bun run migration:fresh
 ```
 
-`migration:fresh` executa todas as migrations `up`, reverte o schema até a versão inicial (`down --to 0`) e executa um novo `up`. Para limpar os dados locais, execute `docker compose down -v`.
+O gate completo é `bun run hardening`. O roteiro para três instâncias está em [Hardening](docs/HARDENING.md).
 
-## Inspeção e Testes das Filas SQS (`awslocal`)
+## 6. Aprofunde-se
 
-Para inspecionar, publicar mensagens manualmente e testar as filas e a DLQ no LocalStack, recomendamos o uso da CLI [`awslocal`](https://github.com/localstack/awscli-local).
+Comece pelo Brain e avance somente até o nível necessário para sua tarefa.
 
-### Instalação da CLI
-
-- **Via pipx (recomendado)**:
-  ```sh
-  pipx install awscli-local awscli
-  ```
-- **Via pip**:
-  ```sh
-  pip install awscli-local awscli
-  ```
-
-### Comandos úteis para o dia a dia
-
-1. **Listar filas ativas**:
-   ```sh
-   awslocal sqs list-queues
-   ```
-
-2. **Publicar uma aposta diretamente na fila SQS**:
-   ```sh
-   awslocal sqs send-message \
-     --queue-url http://localhost:4566/000000000000/wager-transactions.fifo \
-     --message-group-id "wallet-user-01" \
-     --message-deduplication-id "tx-001" \
-     --message-body '{"provider":"evolution","externalReference":"bet-001","userId":"usr-01","amount":5000,"currency":"BRL","type":"bet"}'
-   ```
-
-3. **Inspecionar eventos gerados (`wager-events.fifo`)**:
-   ```sh
-   awslocal sqs receive-message \
-     --queue-url http://localhost:4566/000000000000/wager-events.fifo \
-     --max-number-of-messages 10
-   ```
-
-4. **Inspecionar mensagens na Dead Letter Queue (`wager-transactions-dlq.fifo`)**:
-   ```sh
-   awslocal sqs receive-message \
-     --queue-url http://localhost:4566/000000000000/wager-transactions-dlq.fifo
-   ```
-
-5. **Limpar mensagens de uma fila (purge)**:
-   ```sh
-   awslocal sqs purge-queue --queue-url http://localhost:4566/000000000000/wager-transactions.fifo
-   ```
-
-## Hardening em três instâncias
-
-O fluxo final usa PostgreSQL e LocalStack reais. Ele remove a porta publicada da aplicação, inicia três réplicas internas e executa os testes pelo serviço `test` na mesma rede Docker:
-
-```sh
-docker compose -f compose.yaml -f compose.hardening.yaml down -v
-docker compose -f compose.yaml -f compose.hardening.yaml up -d --build postgres localstack
-docker compose -f compose.yaml -f compose.hardening.yaml run --rm app bun run migration:fresh
-docker compose -f compose.yaml -f compose.hardening.yaml up -d --scale app=3 app
-docker compose -f compose.yaml -f compose.hardening.yaml run --rm test bun run hardening
-docker compose -f compose.yaml -f compose.hardening.yaml down -v
+```mermaid
+flowchart LR
+    Readme["README: executar e acessar"] --> Brain["Brain: contratos e invariantes"]
+    Brain --> Architecture["Arquitetura: decisões técnicas"]
+    Architecture --> Plan["Plano: evolução e entregas"]
+    Brain --> Code["Código e testes: implementação real"]
 ```
 
-`bun run hardening` consolida as suítes de integração e concorrência, verifica os índices críticos e valida links internos do Brain. Veja [o roteiro de evidências](docs/HARDENING.md).
+- [Brain](docs/brain/index.md) — mapa do domínio, contratos e invariantes;
+- [Arquitetura](ARCHITECTURE.md) — decisões e limites do sistema;
+- [Plano de entrega](docs/DELIVERY_PLAN.md) — fases e critérios;
+- [Entenda](Entenda.md) — explicação visual aprofundada;
+- [Operações](docs/runbooks/Operations.md) — diagnóstico e recuperação.
 
-O primeiro `bun install` cria `bun.lock`; ele deve ser versionado junto de qualquer atualização de dependência.
+Invariantes centrais: dinheiro não usa ponto flutuante; saldo não fica negativo; cada mudança de saldo gera um lançamento imutável; reentregas não duplicam efeitos; eventos só ficam publicáveis após o commit financeiro.
