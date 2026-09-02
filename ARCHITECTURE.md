@@ -14,7 +14,13 @@ Monólito modular NestJS com DDD pragmático e arquitetura hexagonal. `domain` n
 - **Entrega:** SQS FIFO melhora ordenação por `walletId`, mas PostgreSQL continua sendo a fonte das garantias.
 - **Outbox:** publishers concorrentes reivindicam lotes com `FOR UPDATE SKIP LOCKED`; publicar é pelo menos uma vez e consumidores devem deduplicar.
 - **Referências fora de ordem:** estado `PENDING_REFERENCE`, worker com backoff exponencial, limite de tentativas e rejeição auditável ao expirar.
-- **Autenticação:** fora do primeiro timebox; `ProviderIdentityPort` e guard no-op deixam o ponto de extensão explícito. Health checks permanecem públicos.
+- **Autenticação:** deliberadamente fora do primeiro timebox. Não há validação de credenciais nem proteção efetiva de acesso nesta versão. Um guard global delega ao `ProviderIdentityPort`, cujo adaptador atual (`AllowAllProviderIdentity`) autoriza toda requisição; health checks ignoram essa porta por serem explicitamente públicos.
+
+## Extensão de identidade e autenticação
+
+O desenho futuro mantém os controllers independentes do mecanismo de autenticação. O `ProviderIdentityGuard` coleta a credencial do canal e o `providerId` declarado na rota ou no payload, então delega a decisão ao `ProviderIdentityPort`. Hoje o adaptador allow-all preserva o comportamento sem autenticação.
+
+Para habilitar segurança, substitui-se apenas esse provider por um adaptador que valide a credencial (por exemplo, JWT, API key ou introspecção externa) e confirme que a identidade autenticada pode agir pelo `providerId` declarado. Requisições ausentes, inválidas ou com identidade divergente deverão ser rejeitadas antes do caso de uso; `/health/live` e `/health/ready` continuam fora dessa decisão. O contrato não escolhe antecipadamente protocolo, emissor nem formato de token.
 
 ## Consistência distribuída e decisão sobre SAGA
 

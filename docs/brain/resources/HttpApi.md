@@ -20,9 +20,8 @@
 
 ## Convenções
 
-DTOs rejeitam campos desconhecidos. Dinheiro entra e sai como string decimal. Erros usam `code`, `message`, `correlationId` e detalhes seguros. Endpoints de health são públicos; os demais passam por `ProviderIdentityPort`.
+DTOs rejeitam campos desconhecidos. Dinheiro entra e sai como string decimal. Erros usam `code`, `message`, `correlationId` e detalhes seguros. Endpoints de health são explicitamente públicos; os demais passam pelo guard global e pelo `ProviderIdentityPort`. O adaptador atual autoriza tudo: esta versão não valida credenciais nem restringe acesso. A troca futura do adaptador deve validar a credencial e o `providerId` declarado antes de executar o caso de uso.
 
 ## Versionamento
 
 Versão inicial implícita. Mudança incompatível introduz `/v2`; campos novos opcionais preservam a versão.
-

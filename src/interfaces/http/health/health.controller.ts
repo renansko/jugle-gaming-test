@@ -5,7 +5,9 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { DependenciesHealthService } from "../../../infrastructure/health/dependencies-health.service";
+import { PublicRoute } from "../auth/provider-identity.guard";
 
+@PublicRoute()
 @Controller("health")
 export class HealthController {
   public constructor(
