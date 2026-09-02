@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --build --wait postgres localstack
       - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm app bun run migration:up
-      - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --scale app=3 app prometheus grafana
+      - run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --scale app=3 --wait app prometheus grafana
       - name: Run reproducible short load
         run: docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm --no-deps -e GITHUB_SHA -e LOAD_DOCKER_VERSION="$(docker --version)" test bun run test:load
       - if: always()

@@ -47,6 +47,9 @@ Depois de um commit, a reentrega encontra inbox/idempotência e não recria efei
 O comando `bun run test:load`, documentado no README, mede uma massa isolada em
 três réplicas, valida contagens e reconciliação e exige convergência da outbox.
 O CI publica `artifacts/load-report.*`; desempenho não é gate de aprovação.
+Antes do runner, o Compose espera todas as réplicas `app` passarem em
+`/health/ready`, que confirma PostgreSQL e SQS, evitando iniciar a carga contra
+um endpoint ainda em bootstrap.
 
 ## Limitações atuais
 
