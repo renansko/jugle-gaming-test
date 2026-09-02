@@ -163,3 +163,53 @@ flowchart LR
 - [Operações](docs/runbooks/Operations.md) — diagnóstico e recuperação.
 
 Invariantes centrais: dinheiro não usa ponto flutuante; saldo não fica negativo; cada mudança de saldo gera um lançamento imutável; reentregas não duplicam efeitos; eventos só ficam publicáveis após o commit financeiro.
+
+## 7. Evidências verificáveis da entrega
+
+[![CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml)
+
+O workflow de CI repete o gate em uma máquina limpa do GitHub: instala as
+dependências, valida lint e TypeScript, executa migrations reversíveis, sobe
+PostgreSQL e LocalStack, mantém três réplicas da aplicação e roda o hardening.
+
+| Evidência | Resultado comprovado |
+|---|---|
+| Testes unitários | 79 aprovados |
+| Testes de integração | 19 aprovados |
+| Testes de concorrência | 4 aprovados |
+| Total do gate automatizado | 102 testes aprovados |
+| Instâncias simultâneas | 3 réplicas saudáveis |
+| Migrations | `up → down → up` desde banco vazio |
+| Índices críticos | 4 verificados por plano de execução |
+| Documentação do Brain | 23 links internos validados |
+
+As provas ficam disponíveis no [histórico público do CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
+no [roteiro reproduzível de hardening](docs/HARDENING.md) e nos próprios
+[testes](tests). Esta apresentação responde às lacunas levantadas no
+[benchmark público da issue #12](https://github.com/renansko/jugle-gaming-test/issues/12)
+sem transformar quantidade de arquivos ou testes em nota de qualidade.
+
+> Este repositório possui CI automatizado. Deploy contínuo não está configurado,
+> pois o escopo atual valida a aplicação localmente com Docker e não publica em
+> um ambiente de produção.
+
+## 8. Métricas e observabilidade
+
+Com o ambiente em execução, as métricas podem ser consultadas diretamente em
+[`GET /metrics`](http://localhost:3000/metrics), no
+[dashboard da aplicação](http://localhost:3000/dashboard), no
+[Prometheus](http://localhost:9090) e no [Grafana](http://localhost:3001).
+
+| Métrica | O que evidencia |
+|---|---|
+| `wager_transactions_total` | Operações por tipo, status e código de falha |
+| `wager_processing_latency_ms` | Latência de processamento por canal |
+| `wallet_lock_duration_ms` | Tempo de contenção do lock financeiro |
+| `outbox_pending` | Eventos ainda aguardando publicação |
+| `outbox_lag_ms` | Idade do evento mais antigo pendente |
+| `reconciliation_divergences_total` | Diferenças detectadas entre saldo e ledger |
+
+O CI comprova que essas séries são expostas e que os cenários funcionais
+permanecem verdes. Throughput e p50/p95/p99 ainda não foram medidos; esses
+números exigem um ensaio de carga controlado e não são inferidos da suíte
+funcional.
