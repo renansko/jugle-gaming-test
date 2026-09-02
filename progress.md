@@ -66,92 +66,18 @@ Observação: parte do código de produção abaixo foi alterada antes de a skil
 - criado `GET /metrics` por `OperationalMetricsController`.
 - métricas iniciais adicionadas para status/failure code, replay, latência, lock, workers e outbox.
 
-## Verificações executadas
+## Verificação final
 
-- `biome lint` inicialmente encontrou apenas dois problemas introduzidos:
-  - `let sent` implícito em `outbox-publisher.ts`;
-  - imports de lifecycle que deveriam ser type-only.
-- ambos foram corrigidos, mas o lint ainda precisa ser reexecutado.
-- typecheck local continua bloqueado porque o `node_modules` preexistente não contém `decimal.js`; validar dentro do Docker com instalação limpa.
-- anteriormente, `docker compose config` passou e os 23 links do Brain passaram.
+Em 2026-09-02, o hardening foi reexecutado em ambiente Docker limpo. As
+migrations passaram por `up → down → up`; lint e TypeScript ficaram verdes;
+79 testes unitários, 19 de integração e 4 de concorrência passaram. As três
+réplicas permaneceram saudáveis, os índices críticos foram verificados e 23
+links do Brain foram validados.
 
-## Próximo ciclo TDD imediato
+## Próximas decisões opcionais
 
-### RED 1 — atomicidade e redelivery SQS
-
-Criar `tests/integration/messaging.spec.ts` usando PostgreSQL e LocalStack reais:
-
-1. criar wallet por HTTP;
-2. enviar `WagerTransactionRequested` pela FIFO;
-3. aguardar processamento;
-4. reenviar o mesmo envelope com outro `MessageDeduplicationId`;
-5. confirmar uma inbox, uma transação, um débito e reconciliação consistente;
-6. confirmar eventos recebidos em `wager-events.fifo`.
-
-Executar e confirmar falha antes de ajustar mais código.
-
-### RED 2 — DLQ
-
-- enviar payload inválido;
-- confirmar chegada à `wager-transactions-dlq.fifo` e ausência de efeito financeiro.
-
-### RED 3 — referência fora de ordem e expiração
-
-- submeter REFUND/ROLLBACK antes da referência;
-- inserir a origem e aguardar resolução pelo worker;
-- para expiração, envelhecer `created_at` e tornar `next_reference_attempt_at` elegível via SQL;
-- confirmar `REFERENCE_NOT_FOUND`, evento de rejeição e reconciliação consistente.
-
-### RED 4 — divergência e métricas
-
-- injetar divergência controlada alterando apenas `wallet.balance` em wallet isolada;
-- confirmar resposta, ausência de autocorreção e contador em `/metrics`;
-- restaurar a wallet ao final do teste.
-
-### RED 5 — concorrência/hardening
-
-Completar testes para:
-
-- wallets diferentes em paralelo;
-- dois publishers disputando outbox sem perda;
-- reinício após commit/antes do ack;
-- restart com outbox pendente;
-- shutdown durante long polling;
-- invariantes finais de saldo, ledger, transações, inbox e outbox.
-
-## Pendências de código conhecidas
-
-- Reexecutar lint; revisar o tipo `EntityManager` usado por `OutboxPublisher.updateGauges()`.
-- Adicionar métrica explícita para conflitos de idempotência e deadlocks.
-- Propagar `correlationId` do HTTP para `WageringService` e reconciliação.
-- Documentar e testar `REFERENCE_NOT_PROCESSED` em `FailureCodes.md`.
-- Decidir se eventos que excedem tentativas precisam de DLQ de eventos separada ou permanecem recuperáveis na outbox.
-- Revisar `MessagingCoordinator` para garantir que shutdown não aguarde timers desnecessariamente.
-- Verificar se a fila de eventos precisa de redrive policy própria.
-
-## Documentação ainda não atualizada
-
-- `docs/brain/entities/InboxOutbox.md`;
-- `docs/brain/services/MessagingWorkers.md`;
-- `docs/brain/services/ReconciliationService.md`;
-- `docs/brain/resources/SqsMessages.md`;
-- `docs/brain/resources/IntegrationEvents.md`;
-- `docs/brain/conventions/Observability.md`;
-- `docs/brain/product/FailureCodes.md`;
-- `docs/runbooks/Operations.md`;
-- `docs/HARDENING.md` e `README.md`;
-- `docs/brain/log.md`;
-- checklists/status de ISSUE-01.4, 01.5 e 01.6 somente após testes verdes.
-
-## Comandos finais planejados
-
-```sh
-docker compose -f compose.yaml -f compose.hardening.yaml down -v
-docker compose -f compose.yaml -f compose.hardening.yaml up -d --build postgres localstack
-docker compose -f compose.yaml -f compose.hardening.yaml run --rm app bun run migration:fresh
-docker compose -f compose.yaml -f compose.hardening.yaml up -d --scale app=3 app
-docker compose -f compose.yaml -f compose.hardening.yaml run --rm test bun run hardening
-docker compose -f compose.yaml -f compose.hardening.yaml down -v
-```
-
-Não declarar conclusão se qualquer etapa acima falhar ou se a matriz crash/restart ainda não tiver evidência.
+- decidir se eventos que excedem tentativas precisam de DLQ de eventos separada
+  ou permanecem recuperáveis na outbox;
+- avaliar métricas explícitas para conflitos de idempotência e deadlocks;
+- avaliar propagação de `correlationId` do HTTP para o serviço financeiro e a
+  reconciliação.
