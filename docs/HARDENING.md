@@ -6,6 +6,24 @@ Use os comandos de “Hardening em três instâncias” do [README](../README.md
 
 O comando cobre `bun run check`, integração HTTP, concorrência, índices, planos SQL e links do Brain. A saída do job de CI é a evidência versionável de versões, duração e resultado.
 
+## Evidência do gate da Onda 1
+
+Em 2026-09-02, a issue local 04 foi executada após `down -v`. As migrations
+passaram por `up → down → up`, e três réplicas `app` permaneceram saudáveis
+antes e durante o runner iniciado com `--no-deps`.
+
+O comando `bun run hardening` concluiu sem falhas:
+
+- Biome e TypeScript verdes;
+- 79 testes unitários, 19 de integração e 4 de concorrência;
+- índices de outbox, referência pendente, ledger e lookup do provider verificados;
+- 23 links internos do Brain validados.
+
+O cenário `messaging.spec.ts` demonstra entrada SQS, inbox e operação financeira
+atômicas, ledger reconciliado, outbox e publicação na fila de eventos. O cenário
+`pending-reference.spec.ts` demonstra referência fora de ordem, resolução pelo
+worker, reconciliação e rejeição terminal publicada para órfãos expirados.
+
 ## Cenários demonstrados
 
 - 50 reentregas simultâneas com a mesma chave produzem uma única aposta e um único débito;
@@ -26,4 +44,8 @@ Depois de um commit, a reentrega encontra inbox/idempotência e não recria efei
 
 ## Limitações atuais
 
-Não há meta artificial de RPS, telemetria OpenTelemetry, double-entry ledger, IdP completo ou deploy AWS. A carga e métricas p50/p95/p99 continuam opcionais. Esta máquina não tinha o Docker Desktop ativo na preparação inicial; execute o roteiro em um runner com Docker para produzir os números finais.
+Não há meta artificial de RPS, double-entry ledger, IdP completo ou deploy AWS.
+A carga e métricas p50/p95/p99 continuam opcionais. Entrega SQS/outbox é
+`at-least-once`; consumidores downstream devem deduplicar pelo ID estável do
+evento. Lifecycle completo de processo e a matriz ampla de crash/restart
+permanecem nos gates posteriores, não cobertos pelo fechamento da Onda 1.

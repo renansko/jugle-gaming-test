@@ -1,6 +1,6 @@
 # Onda 1 — Mensageria confiável e recuperação
 
-Status: `READY`
+Status: `CONCLUÍDA`
 
 Fonte: `prd/issue-01/prd-waves-0-1-reliable-messaging-execution.md`.
 
@@ -8,6 +8,10 @@ A Onda 0 foi concluída com três execuções consecutivas do hardening. A Onda 
 avança em três trilhas AFK que podem iniciar em paralelo. A integração de
 componentes compartilhados e o fechamento das trilhas seguem os bloqueios
 descritos nas issues abaixo. As Ondas 2–4 permanecem bloqueadas.
+
+O gate integrado foi concluído em 2026-09-02 sobre stack limpa, com PostgreSQL,
+LocalStack e três réplicas saudáveis. A regressão registrou 79 testes unitários,
+19 de integração e 4 de concorrência, todos verdes.
 
 ## Issues
 

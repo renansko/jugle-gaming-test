@@ -1,11 +1,14 @@
 # Progresso — Conclusão de ISSUE-01.4, 01.5 e 01.6
 
-Atualizado em 2026-09-01. As trilhas locais 01, 02 e 03 da Onda 1 foram
-fechadas via TDD e validadas pela suíte de hardening em Docker com PostgreSQL,
-LocalStack e três réplicas. O gate integrado 04 permanece aberto; Ondas 2–4
-continuam bloqueadas.
+Atualizado em 2026-09-02. As trilhas locais 01, 02 e 03 e o gate integrado 04
+da Onda 1 foram fechados via TDD e regressão compartilhada em stack limpa com
+PostgreSQL, LocalStack e três réplicas. Ondas 2–4 continuam bloqueadas.
 
 ## Status do escopo implementado: GREEN
+
+- [x] **Onda 1 / issue 04**: gate limpo com migrations `up/down/up`, 79 testes
+  unitários, 19 de integração, 4 de concorrência, índices críticos e 23 links
+  do Brain validados.
 
 - [x] **ISSUE-01.1**: Fundação NestJS/Bun, banco PostgreSQL, LocalStack SQS FIFO/DLQ, migrations e health checks.
 - [x] **ISSUE-01.2**: Núcleo financeiro, `Money` decimal exato, `Wallet` versionada com lock pessimista, `WalletLedgerEntry` append-only e paginação cursor-based.
