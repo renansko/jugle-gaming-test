@@ -4,26 +4,27 @@
 
 JSON estruturado com `correlationId`, `messageId`, `transactionId`, `walletId` e `providerId`. Não registrar payload completo, saldo, credenciais ou PII desnecessária.
 
-## Métricas mínimas
+## OpenTelemetry & Métricas
 
-- transações por kind/status/failure code;
-- duplicatas e conflitos de idempotência;
-- retries, DLQ e idade da mensagem;
-- conflitos/deadlocks e duração de lock;
-- outbox pendente, lag, tentativas e falhas;
-- latência HTTP e de processamento;
-- divergências de reconciliação.
+Instrumentação baseada no OpenTelemetry API (`@opentelemetry/api`) através de [OpenTelemetryBridge](file:///d:/projetos/testes/junglegaming/src/infrastructure/observability/opentelemetry.ts).
 
-Os contadores de reconciliação, reprocessamento pendente e publicação de outbox usam apenas labels fixas de status. A ocorrência individual é registrada como JSON com `correlationId` e `transactionId`.
+### Instrumentos e Séries:
+- `wager_transactions_total`: contador de transações por `kind` e `status`;
+- `idempotency_replays_total`: contador de replays idempotentes bem-sucedidos;
+- `reconciliation_divergences_total`: contador de divergências detectadas;
+- `wallet_lock_duration_ms`: gauge do tempo sob lock `PESSIMISTIC_WRITE`;
+- `wager_processing_latency_ms`: gauge de latência do processamento financeiro;
+- `outbox_pending` e `outbox_lag_ms`: medidores da fila de eventos da outbox.
 
-Labels usam cardinalidade limitada: IDs ficam em logs, nunca em labels.
+Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de conteúdo (formato texto padrão Prometheus e JSON).
 
-Cada réplica expõe as séries operacionais obrigatórias desde o bootstrap com valor zero. A descoberta de métricas não depende da primeira execução dos workers.
+## Dashboards Visuais
 
-## Saúde
+- **Dashboard Web Embutido (`/dashboard`)**: UI responsiva (Dark Mode, Glassmorphism) servida diretamente pelo NestJS na porta `3000`, atualizada em tempo real a cada 2s via polling de `/metrics` e `/health/ready`.
+- **Grafana + Prometheus (`compose.yaml`)**: Grafana pré-configurado na porta `3001` e Prometheus na porta `9090` com scrapers e dashboard JSON provisionado.
 
-Liveness verifica apenas o event loop/processo. Readiness verifica conexão PostgreSQL, migrations esperadas e acesso às filas SQS.
+## Saúde (Health Checks)
 
-## Alertas planejados
+- `GET /health/live`: Liveness verifica o event loop e o processo.
+- `GET /health/ready`: Readiness verifica PostgreSQL (pool e query ativa) e LocalStack SQS (list queues).
 
-DLQ crescente, outbox lag acima do SLO, readiness falha, taxa de erro transitório e qualquer divergência de reconciliação.

@@ -1,5 +1,6 @@
 import { Injectable, Optional } from "@nestjs/common";
-import { OpenTelemetryBridge } from "./opentelemetry";
+import type { OpenTelemetryBridge } from "./opentelemetry";
+
 
 export type MetricLabels = Record<string, string>;
 

@@ -35,6 +35,8 @@ integration(
     const ids = Array.from({ length: 4 }, () => randomUUID());
 
     try {
+      await harness.publishUntilIdle();
+
       for (const id of ids) {
         const expired = id === ids[0];
         await client.query(
@@ -52,13 +54,18 @@ integration(
         );
       }
 
-      await harness.publishConcurrently(2, 2);
+      const publicationResults = await harness.publishConcurrently(2, 2);
+      const publishedCount = publicationResults.reduce(
+        (total, result) => total + result.published,
+        0,
+      );
 
       const result = await client.query(
         `SELECT id, published_at, lease_until, lease_token, attempt_count
          FROM outbox_messages WHERE id = ANY($1::uuid[])`,
         [ids],
       );
+      expect(publishedCount).toBe(ids.length);
       expect(result.rows).toHaveLength(ids.length);
       expect(result.rows.every((row) => row.published_at !== null)).toBe(true);
       expect(result.rows.every((row) => row.lease_until === null)).toBe(true);

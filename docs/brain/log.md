@@ -20,3 +20,5 @@
 - 2026-09-01 | ISSUE-03 | Claim recuperável de referências pendentes trata agenda nula como elegível e mantém lease/backoff/tentativas persistidos.
 - 2026-09-01 | PEND-01 | Alinhamento de DTOs polimórficos (initialBalance, money, gameId), persistência e hash canônico de gameId, enriquecimento de entidades de domínio (Money, WagerTransaction, InboxMessage, OutboxMessage), migração 000500 e cobertura de integração dos 8 endpoints com status 200, 201, 400, 404, 409 e 422.
 - 2026-09-01 | ISSUE-02 | Publisher outbox com claim transacional `SKIP LOCKED`, lease/token recuperável, SQS fora do lock SQL, retry com backoff, finalização parcial e duplicação at-least-once em resultado ambíguo.
+- 2026-09-01 | Observabilidade & OpenTelemetry | Implementação de OpenTelemetry API, exportação Prometheus padrão e JSON, dashboard web embutido em `/dashboard` e stack Grafana/Prometheus provisionada no Docker Compose.
+

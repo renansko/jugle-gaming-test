@@ -2,7 +2,10 @@ import type { INestApplicationContext } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../../src/app.module";
 import { MessagingCoordinator } from "../../src/infrastructure/messaging/messaging-coordinator";
-import { OutboxPublisher } from "../../src/infrastructure/messaging/outbox-publisher";
+import {
+  OutboxPublisher,
+  type PublishBatchResult,
+} from "../../src/infrastructure/messaging/outbox-publisher";
 import { PendingReferenceWorker } from "../../src/infrastructure/messaging/pending-reference-worker";
 import { SqsWagerConsumer } from "../../src/infrastructure/messaging/sqs-wager-consumer";
 
@@ -50,8 +53,11 @@ export class MessagingHarness {
     throw new Error(`Outbox did not become idle after ${maxBatches} batches`);
   }
 
-  public async publishConcurrently(publishers = 2, limit = 10): Promise<void> {
-    await Promise.all(
+  public async publishConcurrently(
+    publishers = 2,
+    limit = 10,
+  ): Promise<PublishBatchResult[]> {
+    return Promise.all(
       Array.from({ length: publishers }, () =>
         this.publisher.publishBatch(limit),
       ),

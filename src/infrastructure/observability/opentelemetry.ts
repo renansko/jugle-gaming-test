@@ -20,10 +20,12 @@ export class OpenTelemetryBridge {
   private readonly otelCounters = new Map<string, Counter>();
   private readonly otelGauges = new Map<string, Gauge>();
 
-  public constructor(serviceName = "junglegaming-processor") {
+  public constructor() {
+    const serviceName = "junglegaming-processor";
     this.tracer = trace.getTracer(serviceName);
     this.meter = metrics.getMeter(serviceName);
   }
+
 
   public getTracer(): Tracer {
     return this.tracer;

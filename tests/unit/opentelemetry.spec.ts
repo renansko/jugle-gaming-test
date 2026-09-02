@@ -4,7 +4,7 @@ import { OpenTelemetryBridge } from "../../src/infrastructure/observability/open
 
 describe("OpenTelemetry & Observability Bridge", () => {
   test("registers metrics with OpenTelemetry and exports Prometheus exposition format", () => {
-    const otel = new OpenTelemetryBridge("junglegaming-processor");
+    const otel = new OpenTelemetryBridge();
     const metrics = new OperationalMetrics(otel);
 
     metrics.increment("wager_transactions_total", { kind: "BET", status: "PROCESSED" });
@@ -24,7 +24,8 @@ describe("OpenTelemetry & Observability Bridge", () => {
   });
 
   test("creates trace spans and executes wrapped function preserving result", async () => {
-    const otel = new OpenTelemetryBridge("junglegaming-processor");
+    const otel = new OpenTelemetryBridge();
+
 
     const result = await otel.withSpan("test_operation", { "test.tag": "value" }, async (span) => {
       expect(span).toBeDefined();
