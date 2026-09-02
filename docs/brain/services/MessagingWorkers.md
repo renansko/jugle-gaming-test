@@ -8,7 +8,8 @@ Consumir solicitações, publicar outbox e reprocessar referências pendentes co
 
 - `SqsWagerConsumer`: valida envelope, chama o caso de uso e decide ack/retry/DLQ.
 - `OutboxPublisher`: reivindica e publica eventos pendentes.
-- `PendingReferenceWorker`: reapresenta transações elegíveis.
+- `PendingReferenceWorker`: reivindica e reapresenta transações elegíveis, com
+  lease recuperável, backoff e limite de tentativas persistidos.
 - `ShutdownCoordinator`: em `SIGTERM`, interrompe polling e conclui ou libera trabalho em curso.
 
 ## Dependências
@@ -20,7 +21,12 @@ Cliente SQS, relógio, unit of work, repositórios e métricas.
 - entrada e saída são `at-least-once`;
 - deduplicação é persistente;
 - erros de negócio fazem ack; transitórios voltam; permanentes esgotados vão à DLQ;
-- nenhum lock SQL é mantido durante chamada de rede ao SQS.
+- uma reversão pendente converge quando a referência válida aparece; o estado pendente anterior não impede a reaplicação;
+- leases expirados e pendências sem agenda voltam a ser elegíveis;
+- nenhum lock SQL é mantido durante chamada de rede ao SQS;
+- publicação total agenda backoff e limpa o lease; resposta parcial finaliza
+  apenas sucessos e agenda retry apenas das falhas; resultado ambíguo conserva
+  o ID estável para duplicação at-least-once.
 
 ## Funções públicas
 

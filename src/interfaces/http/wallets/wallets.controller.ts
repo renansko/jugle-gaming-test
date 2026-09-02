@@ -17,13 +17,37 @@ import { DomainError } from "../../../domain/shared/domain-error";
 import { WalletService } from "../../../application/wallets/wallet.service";
 import { ReconciliationService } from "../../../application/wallets/reconciliation.service";
 
+const initialBalanceSchema = z.union([
+  z.string(),
+  z
+    .object({
+      amount: z.string(),
+      currency: z.string().regex(/^[A-Z]{3}$/).optional(),
+    })
+    .strict(),
+]);
+
 const createWalletSchema = z
   .object({
     playerId: z.string().min(1).max(128),
     currency: z.string().regex(/^[A-Z]{3}$/),
-    initialBalance: z.string().optional(),
+    initialBalance: initialBalanceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .transform((data) => {
+    let initialBalance: string | undefined;
+    if (typeof data.initialBalance === "string") {
+      initialBalance = data.initialBalance;
+    } else if (data.initialBalance && typeof data.initialBalance === "object") {
+      initialBalance = data.initialBalance.amount;
+    }
+    return {
+      playerId: data.playerId,
+      currency: data.currency,
+      initialBalance,
+    };
+  });
+
 
 export interface SerializedWalletResponse {
   id: string;

@@ -1,4 +1,5 @@
 import { DomainError } from "../shared/domain-error";
+import type { Money } from "../shared/money";
 
 export type WagerTransactionStatus =
   | "PENDING"
@@ -7,23 +8,97 @@ export type WagerTransactionStatus =
   | "REJECTED"
   | "FAILED";
 
+export type WagerTransactionKind =
+  | "BET"
+  | "WIN"
+  | "LOSS"
+  | "REFUND"
+  | "ROLLBACK"
+  | "OPENING";
+
+
+export interface CreateWagerTransactionProps {
+  id?: string;
+  idempotencyKey?: string;
+  providerId?: string;
+  externalTransactionId?: string;
+  payloadHash?: string;
+  kind?: WagerTransactionKind;
+  walletId?: string;
+  playerId?: string;
+  money?: Money;
+  roundId?: string;
+  gameId?: string;
+  referenceExternalTransactionId?: string;
+  referenceTransactionId?: string;
+  status?: WagerTransactionStatus;
+  failureCode?: string;
+  observedBalance?: Money;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 /** @wiki docs/brain/entities/WagerTransaction.md */
 export class WagerTransaction {
-  private constructor(
-    public status: WagerTransactionStatus,
-    public failureCode?: string,
-  ) {}
+  public id?: string;
+  public idempotencyKey?: string;
+  public providerId?: string;
+  public externalTransactionId?: string;
+  public payloadHash?: string;
+  public kind?: WagerTransactionKind;
+  public walletId?: string;
+  public playerId?: string;
+  public money?: Money;
+  public roundId?: string;
+  public gameId?: string;
+  public referenceExternalTransactionId?: string;
+  public referenceTransactionId?: string;
+  public status: WagerTransactionStatus;
+  public failureCode?: string;
+  public observedBalance?: Money;
+  public createdAt?: Date;
+  public updatedAt?: Date;
 
-  public static create(): WagerTransaction {
-    return new WagerTransaction("PENDING");
+  private constructor(props: CreateWagerTransactionProps = {}) {
+    this.id = props.id;
+    this.idempotencyKey = props.idempotencyKey;
+    this.providerId = props.providerId;
+    this.externalTransactionId = props.externalTransactionId;
+    this.payloadHash = props.payloadHash;
+    this.kind = props.kind;
+    this.walletId = props.walletId;
+    this.playerId = props.playerId;
+    this.money = props.money;
+    this.roundId = props.roundId;
+    this.gameId = props.gameId;
+    this.referenceExternalTransactionId = props.referenceExternalTransactionId;
+    this.referenceTransactionId = props.referenceTransactionId;
+    this.status = props.status ?? "PENDING";
+    this.failureCode = props.failureCode;
+    this.observedBalance = props.observedBalance;
+    this.createdAt = props.createdAt ?? new Date();
+    this.updatedAt = props.updatedAt ?? new Date();
+  }
+
+  public static create(
+    props?: CreateWagerTransactionProps,
+  ): WagerTransaction {
+    return new WagerTransaction(props);
   }
 
   public static rehydrate(
-    status: WagerTransactionStatus,
+    statusOrProps: WagerTransactionStatus | CreateWagerTransactionProps,
     failureCode?: string,
   ): WagerTransaction {
-    return new WagerTransaction(status, failureCode);
+    if (typeof statusOrProps === "string") {
+      return new WagerTransaction({
+        status: statusOrProps,
+        failureCode,
+      });
+    }
+    return new WagerTransaction(statusOrProps);
   }
+
 
   public pendingReference(): void {
     this.transition("PENDING_REFERENCE");

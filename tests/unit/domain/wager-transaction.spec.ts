@@ -1,13 +1,35 @@
 import { describe, expect, test } from "bun:test";
 import { DomainError } from "../../../src/domain/shared/domain-error";
+import { Money } from "../../../src/domain/shared/money";
 import { WagerTransaction } from "../../../src/domain/wagering/wager-transaction";
 
+
 describe("WagerTransaction Domain State Machine", () => {
-  test("creates in PENDING status by default", () => {
-    const tx = WagerTransaction.create();
+  test("creates in PENDING status by default with rich domain properties", () => {
+    const tx = WagerTransaction.create({
+      id: "tx-1",
+      idempotencyKey: "idem-1",
+      providerId: "evo",
+      externalTransactionId: "ext-1",
+      payloadHash: "hash123",
+      kind: "BET",
+      walletId: "w-1",
+      playerId: "p-1",
+      money: Money.create("50.00", "BRL"),
+      roundId: "r-1",
+      gameId: "roulette",
+    });
+    expect(tx.id).toBe("tx-1");
+    expect(tx.idempotencyKey).toBe("idem-1");
+    expect(tx.providerId).toBe("evo");
+    expect(tx.externalTransactionId).toBe("ext-1");
+    expect(tx.kind).toBe("BET");
+    expect(tx.gameId).toBe("roulette");
+    expect(tx.money?.amount).toBe("50.00");
     expect(tx.status).toBe("PENDING");
     expect(tx.isTerminal()).toBe(false);
   });
+
 
   test("allows valid transition from PENDING to PROCESSED", () => {
     const tx = WagerTransaction.create();

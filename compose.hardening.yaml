@@ -1,6 +1,10 @@
 services:
   app:
+    environment:
+      NODE_ENV: test
+      TEST_WORKERS_AUTOSTART: "false"
     ports: !reset []
+
 
   test:
     build: .

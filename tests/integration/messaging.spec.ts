@@ -1,11 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
+  DeleteMessageCommand,
   ReceiveMessageCommand,
   SendMessageCommand,
   SQSClient,
 } from "@aws-sdk/client-sqs";
 import { Client } from "pg";
+import { MessagingHarness } from "../support/messaging-harness";
 
 const baseUrl = process.env.TEST_APP_URL;
 const sqsEndpoint = process.env.SQS_ENDPOINT ?? "http://localstack:4566";
@@ -66,6 +68,16 @@ async function waitFor<T>(
 }
 
 integration("SQS messaging integration", () => {
+  let harness: MessagingHarness;
+
+  beforeAll(async () => {
+    harness = await MessagingHarness.create();
+  });
+
+  afterAll(async () => {
+    await harness.close();
+  });
+
   test("processes WagerTransactionRequested atomically and publishes integration events", async () => {
     const playerId = `player-${randomUUID()}`;
     const playerWallet = await createWallet(playerId, "100.00");
@@ -98,6 +110,8 @@ integration("SQS messaging integration", () => {
         MessageDeduplicationId: messageId,
       }),
     );
+    await harness.consumeOnce();
+    await harness.publishUntilIdle();
 
     // Wait for the transaction to be processed
     const pgClient = new Client({ connectionString: databaseUrl });
@@ -174,6 +188,20 @@ integration("SQS messaging integration", () => {
             return false;
           }
         });
+
+        await Promise.all(
+          (res.Messages ?? []).map((message) =>
+            message.ReceiptHandle
+              ? sqs.send(
+                  new DeleteMessageCommand({
+                    QueueUrl: eventQueueUrl,
+                    ReceiptHandle: message.ReceiptHandle,
+                  }),
+                )
+              : Promise.resolve(),
+          ),
+        );
+
         return match ?? null;
       });
 
@@ -216,6 +244,7 @@ integration("SQS messaging integration", () => {
         MessageDeduplicationId: `${messageId}-attempt1`,
       }),
     );
+    await harness.consumeOnce();
 
     const pgClient = new Client({ connectionString: databaseUrl });
     await pgClient.connect();
@@ -240,6 +269,7 @@ integration("SQS messaging integration", () => {
           MessageDeduplicationId: `${messageId}-attempt2`,
         }),
       );
+      await harness.consumeOnce();
 
       // Give worker a moment to process redelivery
       await new Promise((resolve) => setTimeout(resolve, 1000));

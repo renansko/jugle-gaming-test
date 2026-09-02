@@ -20,6 +20,9 @@ export class WagerTransactionEntity {
   @Property({ length: 24 }) kind!: string;
   @Property({ fieldName: "round_id", length: 255, nullable: true })
   roundId?: string;
+  @Property({ fieldName: "game_id", length: 255, nullable: true })
+  gameId?: string;
+
   @Property({
     fieldName: "reference_external_transaction_id",
     length: 255,

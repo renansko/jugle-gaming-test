@@ -18,6 +18,8 @@ Os contadores de reconciliação, reprocessamento pendente e publicação de out
 
 Labels usam cardinalidade limitada: IDs ficam em logs, nunca em labels.
 
+Cada réplica expõe as séries operacionais obrigatórias desde o bootstrap com valor zero. A descoberta de métricas não depende da primeira execução dos workers.
+
 ## Saúde
 
 Liveness verifica apenas o event loop/processo. Readiness verifica conexão PostgreSQL, migrations esperadas e acesso às filas SQS.

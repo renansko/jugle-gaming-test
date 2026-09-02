@@ -134,6 +134,7 @@ describe("WageringService Application Service", () => {
         amount: "30.00",
         currency: "USD",
         externalTransactionId: "ext-1",
+        gameId: null,
         kind: "BET",
         playerId: "p-1",
         providerId: "prov-1",
@@ -141,6 +142,7 @@ describe("WageringService Application Service", () => {
         roundId: "r-1",
         walletId: "w-1",
       });
+
 
       const existing: MockTransaction = {
         id: "tx-existing",

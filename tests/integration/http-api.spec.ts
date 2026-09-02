@@ -112,4 +112,103 @@ integration("HTTP integration", () => {
       2,
     );
   });
+
+  test("supports polymorphic payloads, gameId and retrieval endpoints", async () => {
+    const playerId = `player-${randomUUID()}`;
+    const walletResponse = await request("/wallets", {
+      method: "POST",
+      body: JSON.stringify({
+        playerId,
+        currency: "BRL",
+        initialBalance: { amount: "250.00", currency: "BRL" },
+      }),
+    });
+    expect(walletResponse.status).toBe(201);
+    const walletData = (await walletResponse.json()) as Wallet;
+    expect(walletData.balance.amount).toBe("250.00");
+
+    const getWalletResponse = await request(`/wallets/${walletData.id}`);
+    expect(getWalletResponse.status).toBe(200);
+    expect(await getWalletResponse.json()).toMatchObject({
+      id: walletData.id,
+      playerId,
+      balance: { amount: "250.00", currency: "BRL" },
+    });
+
+    const externalTransactionId = `bet-${randomUUID()}`;
+    const txResponse = await request("/wagering/transactions", {
+      method: "POST",
+      headers: { "idempotency-key": `idem-${externalTransactionId}` },
+      body: JSON.stringify({
+        providerId: "integration-provider",
+        externalTransactionId,
+        walletId: walletData.id,
+        playerId,
+        money: { amount: "50.00", currency: "BRL" },
+        kind: "BET",
+        roundId: `round-${randomUUID()}`,
+        gameId: "roulette-live",
+      }),
+    });
+    expect(txResponse.status).toBe(200);
+    const txData = (await txResponse.json()) as { id: string; gameId?: string };
+    expect(txData.gameId).toBe("roulette-live");
+
+    const getTxResponse = await request(
+      `/wagering/transactions/${txData.id}`,
+    );
+    expect(getTxResponse.status).toBe(200);
+    expect(await getTxResponse.json()).toMatchObject({
+      id: txData.id,
+      providerId: "integration-provider",
+      externalTransactionId,
+      walletId: walletData.id,
+      playerId,
+      gameId: "roulette-live",
+      kind: "BET",
+      status: "PROCESSED",
+    });
+
+    const getByProviderResponse = await request(
+      `/providers/integration-provider/wagering/transactions/${externalTransactionId}`,
+    );
+    expect(getByProviderResponse.status).toBe(200);
+    expect(await getByProviderResponse.json()).toMatchObject({
+      id: txData.id,
+      providerId: "integration-provider",
+      externalTransactionId,
+    });
+  });
+
+  test("returns proper HTTP error codes for duplicate, not found and invalid cursor", async () => {
+    const playerId = `player-${randomUUID()}`;
+    const wallet = await createWallet(playerId, "100.00");
+
+    // 409 on duplicate wallet
+    const dupWallet = await request("/wallets", {
+      method: "POST",
+      body: JSON.stringify({ playerId, currency: "BRL" }),
+    });
+    expect(dupWallet.status).toBe(409);
+
+    // 404 on missing wallet
+    const missingWallet = await request(`/wallets/${randomUUID()}`);
+    expect(missingWallet.status).toBe(404);
+
+    // 404 on missing transaction
+    const missingTx = await request(`/wagering/transactions/${randomUUID()}`);
+    expect(missingTx.status).toBe(404);
+
+    // 404 on missing transaction by provider
+    const missingProviderTx = await request(
+      "/providers/unknown-prov/wagering/transactions/unknown-tx",
+    );
+    expect(missingProviderTx.status).toBe(404);
+
+    // 400 on invalid ledger cursor
+    const invalidCursor = await request(
+      `/wallets/${wallet.id}/ledger?cursor=invalid_base64_json`,
+    );
+    expect(invalidCursor.status).toBe(400);
+  });
 });

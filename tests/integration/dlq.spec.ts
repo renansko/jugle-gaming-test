@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
   DeleteMessageCommand,
@@ -7,6 +7,7 @@ import {
   SQSClient,
 } from "@aws-sdk/client-sqs";
 import { Client } from "pg";
+import { MessagingHarness } from "../support/messaging-harness";
 
 const baseUrl = process.env.TEST_APP_URL;
 const sqsEndpoint = process.env.SQS_ENDPOINT ?? "http://localstack:4566";
@@ -67,6 +68,16 @@ async function waitFor<T>(
 }
 
 integration("DLQ integration", () => {
+  let harness: MessagingHarness;
+
+  beforeAll(async () => {
+    harness = await MessagingHarness.create();
+  });
+
+  afterAll(async () => {
+    await harness.close();
+  });
+
   test("routes invalid schema payload to DLQ without any database side effects", async () => {
     const invalidMessageId = `invalid-${randomUUID()}`;
     const invalidBody = JSON.stringify({
@@ -84,6 +95,7 @@ integration("DLQ integration", () => {
         MessageDeduplicationId: invalidMessageId,
       }),
     );
+    await harness.consumeOnce();
 
     // Wait for message to arrive in DLQ
     const dlqMessage = await waitFor(async () => {
@@ -157,6 +169,7 @@ integration("DLQ integration", () => {
         MessageDeduplicationId: messageId,
       }),
     );
+    await harness.consumeOnce();
 
     // Wait for message to arrive in DLQ due to WALLET_NOT_FOUND (domain error)
     const dlqMessage = await waitFor(async () => {

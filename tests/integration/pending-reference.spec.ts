@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
+import { MessagingHarness } from "../support/messaging-harness";
 
 const baseUrl = process.env.TEST_APP_URL;
 const databaseUrl =
@@ -38,9 +39,10 @@ async function createWallet(
 
 async function waitFor<T>(
   fn: () => Promise<T | null | undefined>,
-  timeoutMs = 15000,
+  timeoutMs = 25000,
   intervalMs = 200,
 ): Promise<T> {
+
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const result = await fn();
@@ -51,12 +53,25 @@ async function waitFor<T>(
 }
 
 integration("Pending reference & out-of-order resolution", () => {
-  test("resolves out-of-order REFUND once original BET arrives", async () => {
-    const playerId = `player-${randomUUID()}`;
-    const playerWallet = await createWallet(playerId, "100.00");
-    const betExternalId = `bet-${randomUUID()}`;
-    const refundExternalId = `refund-${randomUUID()}`;
-    const roundId = `round-${randomUUID()}`;
+  let harness: MessagingHarness;
+
+  beforeAll(async () => {
+    harness = await MessagingHarness.create();
+  });
+
+  afterAll(async () => {
+    await harness.close();
+  });
+
+  test(
+    "resolves out-of-order REFUND once original BET arrives",
+    async () => {
+      const playerId = `player-${randomUUID()}`;
+      const playerWallet = await createWallet(playerId, "100.00");
+      const betExternalId = `bet-${randomUUID()}`;
+      const refundExternalId = `refund-${randomUUID()}`;
+      const roundId = `round-${randomUUID()}`;
+
 
     // 1. Submit REFUND before the BET exists
     const refundResponse = await request("/wagering/transactions", {
@@ -98,6 +113,7 @@ integration("Pending reference & out-of-order resolution", () => {
     expect(betResponse.status).toBe(200);
     const betPayload = (await betResponse.json()) as TransactionOutput;
     expect(betPayload.status).toBe("PROCESSED");
+    await harness.resolvePendingOnce();
 
     // 3. Wait for PendingReferenceWorker loop to resolve the REFUND
     const pgClient = new Client({ connectionString: databaseUrl });
@@ -138,7 +154,8 @@ integration("Pending reference & out-of-order resolution", () => {
     } finally {
       await pgClient.end();
     }
-  });
+  }, 30000);
+
 
   test("expires orphan pending reference after TTL and marks REJECTED with REFERENCE_NOT_FOUND", async () => {
     const playerId = `player-${randomUUID()}`;
@@ -177,6 +194,7 @@ integration("Pending reference & out-of-order resolution", () => {
          where id = $1`,
         [refundPayload.id],
       );
+      await harness.resolvePendingOnce();
 
       // Wait for PendingReferenceWorker loop to expire it
       const expiredRefund = await waitFor(async () => {

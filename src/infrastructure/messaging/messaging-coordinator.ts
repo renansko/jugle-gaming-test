@@ -6,6 +6,7 @@ import {
   type OnApplicationBootstrap,
 } from "@nestjs/common";
 import { OperationalMetrics } from "../observability/operational-metrics";
+import { AppConfig } from "../config/app-config";
 import { OutboxPublisher } from "./outbox-publisher";
 import { PendingReferenceWorker } from "./pending-reference-worker";
 import { SqsWagerConsumer } from "./sqs-wager-consumer";
@@ -28,9 +29,15 @@ export class MessagingCoordinator
     private readonly pendingReferences: PendingReferenceWorker,
     @Inject(OperationalMetrics)
     private readonly metrics: OperationalMetrics,
+    @Inject(AppConfig)
+    private readonly config: AppConfig,
   ) {}
 
   public onApplicationBootstrap(): void {
+    if (!this.config.autostartWorkers) {
+      return;
+    }
+
     this.workerTasks = [
       this.runConsumerLoop(),
       this.runOutboxLoop(),
@@ -44,6 +51,10 @@ export class MessagingCoordinator
 
     await Promise.allSettled(this.workerTasks);
     this.publisher.stop();
+  }
+
+  public isRunning(): boolean {
+    return this.workerTasks.length > 0;
   }
 
   private async runConsumerLoop(): Promise<void> {

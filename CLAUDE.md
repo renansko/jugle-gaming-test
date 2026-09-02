@@ -38,3 +38,17 @@ Quando uma alteração modificar comportamento, contrato, efeito colateral, inte
 
 - **Complexidade Ciclomática Máxima: 6**: Nenhuma função, método ou rotina deve ultrapassar a complexidade ciclomática de 6. Em caso de muitas ramificações (`if`, `else`, `switch/case`, loops, ternários ou operadores lógicos encadeados), refatore imediatamente extraindo funções auxiliares com responsabilidade única, utilizando *early returns* ou aplicando estratégias/handlers dedicados.
 - **Legibilidade Humana e Clean Code**: O código deve priorizar a clareza para leitura humana. Utilize variáveis com nomes semânticos e descritivos, quebras verticais de linha entre etapas lógicas, interfaces/tipos explícitos e queries SQL bem formatadas em blocos legíveis.
+
+## Agent skills
+
+### Issue tracker
+
+Issues são mantidas como markdown em `.scratch/<feature>/issues/`. Consulte `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Usamos os labels padrão `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` e `wontfix`. Consulte `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+O repositório usa contexto único documentado no Brain e em `ARCHITECTURE.md`. Consulte `docs/agents/domain.md`.

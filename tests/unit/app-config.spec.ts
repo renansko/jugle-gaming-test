@@ -24,3 +24,19 @@ test("reports only invalid configuration keys without exposing values", () => {
     loadConfig({ ...validEnvironment, AWS_SECRET_ACCESS_KEY: "" }),
   ).toThrow("AWS_SECRET_ACCESS_KEY");
 });
+
+test("disables automatic workers by default in the test environment", () => {
+  const config = loadConfig({ ...validEnvironment, NODE_ENV: "test" });
+
+  expect(config.autostartWorkers).toBe(false);
+});
+
+test("rejects the test-only worker switch outside the test environment", () => {
+  expect(() =>
+    loadConfig({
+      ...validEnvironment,
+      NODE_ENV: "development",
+      TEST_WORKERS_AUTOSTART: "false",
+    }),
+  ).toThrow("TEST_WORKERS_AUTOSTART");
+});

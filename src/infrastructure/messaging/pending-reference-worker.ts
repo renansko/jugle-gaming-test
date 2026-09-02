@@ -42,17 +42,18 @@ export class PendingReferenceWorker {
         SELECT id
         FROM wager_transactions
         WHERE status = 'PENDING_REFERENCE'
-          AND next_reference_attempt_at <= NOW()
+          AND (next_reference_attempt_at IS NULL OR next_reference_attempt_at <= NOW())
           AND (reference_lease_until IS NULL OR reference_lease_until < NOW())
-        ORDER BY next_reference_attempt_at, created_at
+        ORDER BY next_reference_attempt_at NULLS FIRST, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT ?
       )
       UPDATE wager_transactions wager_alias
       SET reference_lease_until = ?,
           reference_attempt_count = wager_alias.reference_attempt_count + 1,
-          next_reference_attempt_at = NOW() + LEAST(300000, 1000 * POWER(2, LEAST(wager_alias.reference_attempt_count + 1, 8))) * INTERVAL '1 millisecond'
+          next_reference_attempt_at = NOW() + LEAST(300000, 1000 * POWER(2, LEAST(wager_alias.reference_attempt_count, 8))) * INTERVAL '1 millisecond'
       FROM claimed
+
       WHERE wager_alias.id = claimed.id
       RETURNING wager_alias.id, wager_alias.created_at, wager_alias.reference_attempt_count
     `;

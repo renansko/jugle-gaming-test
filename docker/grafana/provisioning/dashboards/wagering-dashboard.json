@@ -1,0 +1,147 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "System Overview & Health",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "id": 2,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "title": "Reconciliation Divergences",
+      "type": "stat",
+      "targets": [{ "expr": "reconciliation_divergences_total", "refId": "A" }]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "title": "Total Wager Transactions",
+      "type": "stat",
+      "targets": [{ "expr": "sum(wager_transactions_total)", "refId": "A" }]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "purple", "value": null }]
+          }
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "id": 4,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "title": "Idempotent Replays",
+      "type": "stat",
+      "targets": [{ "expr": "idempotency_replays_total", "refId": "A" }]
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 200 }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "title": "Processing Latency (ms)",
+      "type": "stat",
+      "targets": [{ "expr": "wager_processing_latency_ms", "refId": "A" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 6,
+      "title": "Financial Operations Breakdown & Latency Timeseries",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 7,
+      "title": "Transactions by Kind & Status",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "wager_transactions_total", "legendFormat": "{{kind}} - {{status}}", "refId": "A" }
+      ]
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 8,
+      "title": "Wallet Lock Duration (PESSIMISTIC_WRITE)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "wallet_lock_duration_ms", "legendFormat": "Lock duration (ms)", "refId": "A" }
+      ]
+    }
+  ],
+  "refresh": "2s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["wagering", "opentelemetry", "metrics"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Jungle Gaming — Wagering Processor Observability",
+  "uid": "junglegaming-observability",
+  "version": 1
+}

@@ -37,6 +37,10 @@ export class Money {
     return new Decimal(this.amount).isZero();
   }
 
+  public isPositive(): boolean {
+    return new Decimal(this.amount).isPositive() && !this.isZero();
+  }
+
   public add(other: Money): Money {
     this.assertSameCurrency(other);
     const sum = new Decimal(this.amount).plus(other.amount).toFixed(2);
@@ -57,9 +61,30 @@ export class Money {
     return Money.create(difference.toFixed(2), this.currency);
   }
 
+  public greaterThan(other: Money): boolean {
+    this.assertSameCurrency(other);
+    return new Decimal(this.amount).greaterThan(other.amount);
+  }
+
+  public greaterThanOrEqual(other: Money): boolean {
+    this.assertSameCurrency(other);
+    return new Decimal(this.amount).greaterThanOrEqualTo(other.amount);
+  }
+
+  public lessThan(other: Money): boolean {
+    this.assertSameCurrency(other);
+    return new Decimal(this.amount).lessThan(other.amount);
+  }
+
+  public lessThanOrEqual(other: Money): boolean {
+    this.assertSameCurrency(other);
+    return new Decimal(this.amount).lessThanOrEqualTo(other.amount);
+  }
+
   public equals(other: Money): boolean {
     return this.currency === other.currency && this.amount === other.amount;
   }
+
 
   public toJSON(): { amount: string; currency: string } {
     return {

@@ -5,10 +5,12 @@ import { AppConfig, loadConfig } from "./config/app-config";
 import { DependenciesHealthService } from "./health/dependencies-health.service";
 import { OperationalMetrics } from "./observability/operational-metrics";
 import { OperationalMetricsController } from "./observability/operational-metrics.controller";
+import { OpenTelemetryBridge } from "./observability/opentelemetry";
+import { DashboardController } from "./observability/dashboard.controller";
 
 @Global()
 @Module({
-  controllers: [OperationalMetricsController],
+  controllers: [OperationalMetricsController, DashboardController],
   providers: [
     {
       provide: AppConfig,
@@ -19,8 +21,15 @@ import { OperationalMetricsController } from "./observability/operational-metric
       useFactory: async (): Promise<MikroORM> => MikroORM.init(mikroOrmConfig),
     },
     DependenciesHealthService,
+    OpenTelemetryBridge,
     OperationalMetrics,
   ],
-  exports: [AppConfig, DependenciesHealthService, OperationalMetrics, MikroORM],
+  exports: [
+    AppConfig,
+    DependenciesHealthService,
+    OpenTelemetryBridge,
+    OperationalMetrics,
+    MikroORM,
+  ],
 })
 export class InfrastructureModule {}

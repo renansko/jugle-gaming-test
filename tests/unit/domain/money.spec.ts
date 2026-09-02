@@ -45,6 +45,26 @@ describe("Money Domain Value Object", () => {
     expect(zeroUsd.equals(Money.create("0.00", "BRL"))).toBe(false);
   });
 
+  test("compares amounts of same currency and checks positive values", () => {
+    const ten = Money.create("10.00", "BRL");
+    const twenty = Money.create("20.00", "BRL");
+    const tenAgain = Money.create("10.00", "BRL");
+    const zero = Money.zero("BRL");
+
+    expect(ten.isPositive()).toBe(true);
+    expect(zero.isPositive()).toBe(false);
+    expect(twenty.greaterThan(ten)).toBe(true);
+    expect(ten.greaterThan(twenty)).toBe(false);
+    expect(ten.greaterThanOrEqual(tenAgain)).toBe(true);
+    expect(ten.lessThan(twenty)).toBe(true);
+    expect(twenty.lessThan(ten)).toBe(false);
+    expect(ten.lessThanOrEqual(tenAgain)).toBe(true);
+
+    expect(() => ten.greaterThan(Money.create("5.00", "USD"))).toThrow(
+      DomainError,
+    );
+  });
+
   test("rejects scientific notation, negatives, invalid currencies, and excessive precision", () => {
     for (const amount of ["1e2", "-1", "0.001", "abc", "10,50", ""]) {
       expect(() => Money.create(amount, "BRL")).toThrow(DomainError);

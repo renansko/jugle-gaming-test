@@ -27,14 +27,33 @@ const transactionSchema = z
     externalTransactionId: z.string().min(1).max(255),
     walletId: z.string().uuid(),
     playerId: z.string().min(1).max(128),
-    currency: z.string().regex(/^[A-Z]{3}$/),
-    amount: z.string(),
+    currency: z.string().regex(/^[A-Z]{3}$/).optional(),
+    amount: z.string().optional(),
+    money: z
+      .object({
+        amount: z.string(),
+        currency: z.string().regex(/^[A-Z]{3}$/),
+      })
+      .strict()
+      .optional(),
     kind: z.enum(["BET", "WIN", "LOSS", "REFUND", "ROLLBACK"]),
     roundId: z.string().min(1).max(255),
+    gameId: z.string().min(1).max(255).optional(),
     referenceExternalTransactionId: z.string().min(1).max(255).optional(),
   })
   .strict()
   .superRefine((value, context) => {
+    const hasMoney = Boolean(value.money);
+    const hasAmountCurrency = Boolean(value.amount && value.currency);
+
+    if (!hasMoney && !hasAmountCurrency) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Either amount and currency or money object is required",
+        path: ["amount"],
+      });
+    }
+
     if (
       ["REFUND", "ROLLBACK"].includes(value.kind) &&
       !value.referenceExternalTransactionId
@@ -45,7 +64,27 @@ const transactionSchema = z
         path: ["referenceExternalTransactionId"],
       });
     }
+  })
+  .transform((value) => {
+    const amount = value.money ? value.money.amount : (value.amount as string);
+    const currency = value.money
+      ? value.money.currency
+      : (value.currency as string);
+
+    return {
+      providerId: value.providerId,
+      externalTransactionId: value.externalTransactionId,
+      walletId: value.walletId,
+      playerId: value.playerId,
+      currency,
+      amount,
+      kind: value.kind,
+      roundId: value.roundId,
+      gameId: value.gameId,
+      referenceExternalTransactionId: value.referenceExternalTransactionId,
+    };
   });
+
 
 @Controller()
 export class WageringController {

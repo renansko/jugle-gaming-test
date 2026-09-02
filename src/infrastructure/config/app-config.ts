@@ -13,6 +13,18 @@ const environmentSchema = z.object({
   SQS_WAGER_QUEUE_URL: z.string().url(),
   SQS_WAGER_DLQ_URL: z.string().url(),
   SQS_EVENT_QUEUE_URL: z.string().url(),
+  TEST_WORKERS_AUTOSTART: z.enum(["true", "false"]).optional(),
+}).superRefine((environment, context) => {
+  if (
+    environment.TEST_WORKERS_AUTOSTART !== undefined &&
+    environment.NODE_ENV !== "test"
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["TEST_WORKERS_AUTOSTART"],
+      message: "TEST_WORKERS_AUTOSTART is only allowed when NODE_ENV is test",
+    });
+  }
 });
 
 export class AppConfig {
@@ -27,6 +39,7 @@ export class AppConfig {
     public readonly wagerQueueUrl: string,
     public readonly wagerDlqUrl: string,
     public readonly eventQueueUrl: string,
+    public readonly autostartWorkers: boolean,
   ) {}
 }
 
@@ -50,5 +63,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     value.SQS_WAGER_QUEUE_URL,
     value.SQS_WAGER_DLQ_URL,
     value.SQS_EVENT_QUEUE_URL,
+    value.NODE_ENV !== "test" || value.TEST_WORKERS_AUTOSTART === "true",
   );
 }

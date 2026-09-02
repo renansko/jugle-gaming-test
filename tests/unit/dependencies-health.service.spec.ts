@@ -13,7 +13,9 @@ const unavailableDependencies = new AppConfig(
   "http://127.0.0.1:1/000000000000/wager-transactions.fifo",
   "http://127.0.0.1:1/000000000000/wager-transactions-dlq.fifo",
   "http://127.0.0.1:1/000000000000/wager-events.fifo",
+  false,
 );
+
 
 test("reports both dependencies down when PostgreSQL and SQS cannot be reached", async () => {
   const health = new DependenciesHealthService(unavailableDependencies);

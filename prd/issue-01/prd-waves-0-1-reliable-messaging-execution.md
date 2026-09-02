@@ -1,5 +1,9 @@
 # PRD — Execução segura das Ondas 0 e 1
 
+## Estado
+
+`ONDA 0 CONCLUÍDA` em 2026-09-01. O hardening dirigido passou três vezes consecutivas sobre a mesma stack com PostgreSQL, LocalStack e três réplicas saudáveis; nenhuma Onda 2–4 foi iniciada.
+
 ## Problem Statement
 
 O repositório possui uma implementação inicial de mensageria, inbox, outbox e recuperação de referências, mas o baseline público ainda não comprova de forma determinística os critérios eliminatórios. O CI unitário está verde, enquanto o fluxo Docker de hardening falha ao reconciliar a stack durante a execução do container de testes, reduzindo as três réplicas e encerrando a aplicação da qual a suíte depende.
