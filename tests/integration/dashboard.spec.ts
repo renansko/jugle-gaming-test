@@ -10,19 +10,7 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   });
 }
 
-integration("Observability & Dashboard integration", () => {
-  test("serves live web dashboard HTML with real-time UI components", async () => {
-    const res = await request("/dashboard");
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toContain("text/html");
-
-    const html = await res.text();
-    expect(html).toContain("Jungle Gaming — Wagering Observability");
-    expect(html).toContain("wager_processing_latency_ms");
-    expect(html).toContain("wallet_lock_duration_ms");
-    expect(html).toContain("fetchData");
-  });
-
+integration("Observability & Metrics integration", () => {
   test("negotiates Prometheus text/plain format by default or JSON when requested", async () => {
     // 1. Default Prometheus format
     const promRes = await request("/metrics");

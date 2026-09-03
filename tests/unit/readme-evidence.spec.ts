@@ -48,4 +48,19 @@ describe("README delivery evidence", () => {
       expect(evidence.toLowerCase()).not.toContain("issue #13");
     }
   });
+
+  test("documents the container runner required by integration and concurrency suites", () => {
+    const composePrefix =
+      "docker compose -f compose.yaml -f compose.hardening.yaml";
+
+    expect(readme).toContain(
+      `${composePrefix} run --rm --no-deps test bun run test:integration`,
+    );
+    expect(readme).toContain(
+      `${composePrefix} run --rm --no-deps test bun run test:concurrency`,
+    );
+    expect(readme).toContain("TEST_APP_URL=http://app:3000");
+    expect(readme).toContain("0 pass");
+    expect(readme).toContain("out-of-order samples");
+  });
 });

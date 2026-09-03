@@ -1,10 +1,9 @@
 import { expect, test } from "bun:test";
 
 const appUrl = process.env.TEST_APP_URL;
+const integration = appUrl ? test : test.skip;
 
-test("liveness and readiness use the running application with PostgreSQL and SQS", async () => {
-  expect(appUrl).toBeDefined();
-
+integration("liveness and readiness use the running application with PostgreSQL and SQS", async () => {
   const [live, ready] = await Promise.all([
     fetch(`${appUrl}/health/live`),
     fetch(`${appUrl}/health/ready`),

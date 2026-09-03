@@ -38,3 +38,8 @@ O harness drena a outbox em lotes limitados até ficar ociosa. Testes que inspec
 ## Hardening reproduzível
 
 `compose.hardening.yaml` remove a porta host da aplicação e o Compose escala `app` para três instâncias. O serviço `test` acessa `http://app:3000` pela rede interna; assim, retries e disputas percorrem réplicas reais com PostgreSQL e LocalStack compartilhados. `bun run hardening` reúne integração, concorrência, inspeção de índices/planos e validação dos links do Brain.
+
+As suítes externas dependem de `TEST_APP_URL`. Sem essa variável, os cenários
+são marcados como `skip`; uma saída `0 pass` não constitui validação. O runner
+oficial é o serviço `test` de `compose.hardening.yaml`, que injeta as URLs da
+aplicação, PostgreSQL e LocalStack na rede interna.

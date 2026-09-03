@@ -6,11 +6,10 @@ import { DependenciesHealthService } from "./health/dependencies-health.service"
 import { OperationalMetrics } from "./observability/operational-metrics";
 import { OperationalMetricsController } from "./observability/operational-metrics.controller";
 import { OpenTelemetryBridge } from "./observability/opentelemetry";
-import { DashboardController } from "./observability/dashboard.controller";
 
 @Global()
 @Module({
-  controllers: [OperationalMetricsController, DashboardController],
+  controllers: [OperationalMetricsController],
   providers: [
     {
       provide: AppConfig,

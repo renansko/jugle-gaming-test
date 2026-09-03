@@ -33,7 +33,6 @@ Para encerrar, use `docker compose down`. Para também apagar os dados locais do
 
 | O que | Endereço | Como usar |
 |---|---|---|
-| Dashboard da aplicação | <http://localhost:3000/dashboard> | Visão rápida da saúde e operação |
 | API HTTP | <http://localhost:3000> | Wallets e transações de apostas |
 | Health | <http://localhost:3000/health/ready> | Confirma PostgreSQL e SQS |
 | Métricas | <http://localhost:3000/metrics> | Formato Prometheus ou JSON via `Accept` |
@@ -45,8 +44,7 @@ As credenciais `test` da AWS e `admin/admin` do Grafana são exclusivas do ambie
 
 ```mermaid
 flowchart TD
-    Dev["Você"] --> Dashboard["Dashboard :3000/dashboard"]
-    Dev --> API["API :3000"]
+    Dev["Você"] --> API["API :3000"]
     Dev --> Grafana["Grafana :3001"]
     API --> Postgres["PostgreSQL interno"]
     API --> SQS["LocalStack SQS :4566"]
@@ -159,6 +157,12 @@ docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test
 docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test bun run test:concurrency
 ```
 
+O serviço `test` injeta `TEST_APP_URL=http://app:3000` e as URLs internas do
+PostgreSQL e do LocalStack. Não execute essas suítes com
+`docker compose exec app ...`: o container `app` é o servidor, não o runner de
+testes. Se a saída mostrar `0 pass` e todos os testes como `skip`, o runner foi
+iniciado sem `TEST_APP_URL` e nenhum cenário de integração foi validado.
+
 Para executar o gate completo no container de testes, substitua os dois últimos
 comandos de teste por:
 
@@ -240,6 +244,20 @@ Com o ambiente em execução, as métricas podem ser consultadas diretamente em
 O CI comprova que essas séries são expostas e que os cenários funcionais
 permanecem verdes. Throughput e p50/p95/p99 são medidos separadamente pelo
 `test:load`; não são inferidos da suíte funcional.
+
+Se o Prometheus registrar `out-of-order samples` depois de o Docker Desktop ou
+o computador voltar de suspensão, confira <http://localhost:9090/targets>. Com
+o target `up`, o endpoint está funcionando; o aviso indica que o relógio
+retrocedeu em relação a amostras já mantidas no TSDB. Como o ambiente local não
+persiste dados do Prometheus, reinicie somente esse serviço para descartar as
+amostras futuras:
+
+```sh
+docker compose restart prometheus
+```
+
+Se o aviso reaparecer, sincronize/reinicie o Docker Desktop (no WSL, execute
+`wsl --shutdown` em um PowerShell do Windows) antes de subir novamente a stack.
 
 ## 9. Carga curta reproduzível
 

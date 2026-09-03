@@ -28,13 +28,16 @@ Eventos de log padronizados distinguem `wager_completed`, `wager_replay`, `wager
 
 Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de conteúdo (formato texto padrão Prometheus e JSON).
 
-## Dashboards Visuais
+## Dashboards e Métricas
 
-- **Dashboard Web Embutido (`/dashboard`)**: UI responsiva (Dark Mode, Glassmorphism) servida diretamente pelo NestJS na porta `3000`, atualizada em tempo real a cada 2s via polling de `/metrics` e `/health/ready`.
 - **Grafana + Prometheus (`compose.yaml`)**: Grafana pré-configurado na porta
   `3001` e Prometheus na porta `9090`. O dashboard provisionado deriva
   throughput e p50/p95/p99 de counters e histogramas, além de mostrar falhas,
   rejeições, conflitos, locks, retries, DLQ, reconciliação e outbox.
+
+No ambiente local, o TSDB do Prometheus é efêmero. Após suspensão do host, um
+retrocesso do relógio do Docker pode gerar `out-of-order samples`; com o target
+saudável, reiniciar apenas o Prometheus descarta as amostras com timestamp futuro.
 
 ## Saúde (Health Checks)
 

@@ -332,10 +332,10 @@ tratados com o cliente final.
 ## 9. Observabilidade e evidências
 
 Eu quis tornar visível o que normalmente fica escondido na mensageria: filas,
-pendências, retries, locks, latência, Outbox e reconciliação. O dashboard ajuda
-na apresentação dos testes e prepara o terreno para operação em produção.
+pendências, retries, locks, latência, Outbox e reconciliação. As métricas exportadas
+e o Grafana provisionado preparam o terreno para operação e diagnóstico.
 
-Essa tela deve exibir sinais operacionais sanitizados, nunca payload financeiro
+Esses sinais exibem apenas indicadores operacionais sanitizados, nunca payload financeiro
 completo, credenciais ou dados pessoais. Acesso, retenção, mascaramento e
 cardinalidade das métricas ainda dependem do ambiente real.
 
@@ -343,11 +343,11 @@ cardinalidade das métricas ainda dependem do ambiente real.
 flowchart LR
     App["Aplicação e workers"] --> Logs["Logs estruturados"]
     App --> Metrics["Métricas Prometheus"]
-    Metrics --> Dashboard["Dashboard e Grafana"]
+    Metrics --> Grafana["Grafana e Prometheus"]
     Tests["Unitários + integração + concorrência"] --> CI["GitHub Actions"]
     Brain["Brain e links validados"] --> CI
     CI --> Evidence["Pasta evidencias"]
-    Dashboard --> Operator["Diagnóstico sem payload sensível"]
+    Grafana --> Operator["Diagnóstico sem payload sensível"]
     Evidence --> Reviewer["Prova reproduzível"]
 ```
 
