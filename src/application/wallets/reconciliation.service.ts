@@ -7,12 +7,21 @@ import { WalletEntity } from "../../infrastructure/persistence/entities/wallet.e
 import { OperationalMetrics } from "../../infrastructure/observability/operational-metrics";
 
 export interface ReconciliationResult {
-  storedBalance: string;
-  calculatedBalance: string;
-  difference: string;
+  walletId: string;
+  storedBalance: {
+    amount: string;
+    currency: string;
+  };
+  calculatedBalance: {
+    amount: string;
+    currency: string;
+  };
+  difference: {
+    amount: string;
+    currency: string;
+  };
   consistent: boolean;
   checkedEntries: number;
-  currency: string;
 }
 
 /** @wiki docs/brain/services/ReconciliationService.md */
@@ -82,12 +91,21 @@ export class ReconciliationService {
     }
 
     return {
-      storedBalance: storedBalance.amount,
-      calculatedBalance: calculatedBalance.amount,
-      difference,
+      walletId,
+      storedBalance: {
+        amount: storedBalance.amount,
+        currency: wallet.currency,
+      },
+      calculatedBalance: {
+        amount: calculatedBalance.amount,
+        currency: wallet.currency,
+      },
+      difference: {
+        amount: difference,
+        currency: wallet.currency,
+      },
       consistent: isConsistent,
       checkedEntries: Number(resultRow.checkedEntries),
-      currency: wallet.currency,
     };
   }
 }

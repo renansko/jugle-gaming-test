@@ -205,9 +205,9 @@ integration("Pending reference & out-of-order resolution", () => {
         { method: "POST" },
       );
       expect(await reconciliation.json()).toMatchObject({
-        storedBalance: "100.00",
-        calculatedBalance: "100.00",
-        difference: "0.00",
+        storedBalance: { amount: "100.00", currency: "BRL" },
+        calculatedBalance: { amount: "100.00", currency: "BRL" },
+        difference: { amount: "0.00", currency: "BRL" },
         consistent: true,
         checkedEntries: 3,
       });

@@ -257,9 +257,9 @@ flowchart TD
 
 ## 7. Referências e Arquivos do Projeto
 
-- [ARCHITECTURE.md](file:///c:/Users/renan/OneDrive/Documentos/ChatGPT/junglegamingTest/ARCHITECTURE.md) — Diretrizes arquiteturais gerais.
-- [docs/brain/index.md](file:///c:/Users/renan/OneDrive/Documentos/ChatGPT/junglegamingTest/docs/brain/index.md) — Índice de contratos e invariantes do sistema.
-- [docs/brain/conventions/Concurrency.md](file:///c:/Users/renan/OneDrive/Documentos/ChatGPT/junglegamingTest/docs/brain/conventions/Concurrency.md) — Estratégia de concorrência e isolamento.
-- [docs/brain/conventions/Idempotency.md](file:///c:/Users/renan/OneDrive/Documentos/ChatGPT/junglegamingTest/docs/brain/conventions/Idempotency.md) — Padrão de idempotência e hash canônico.
-- [docs/brain/services/MessagingWorkers.md](file:///c:/Users/renan/OneDrive/Documentos/ChatGPT/junglegamingTest/docs/brain/services/MessagingWorkers.md) — Especificação dos workers de fila e outbox.
-- [docs/DELIVERY_PLAN.md](file:///c:/Users/renan/OneDrive/Documentos/ChatGPT/junglegamingTest/docs/DELIVERY_PLAN.md) — Fases de entrega e critérios de aceite.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Diretrizes arquiteturais gerais.
+- [docs/brain/index.md](docs/brain/index.md) — Índice de contratos e invariantes do sistema.
+- [docs/brain/conventions/Concurrency.md](docs/brain/conventions/Concurrency.md) — Estratégia de concorrência e isolamento.
+- [docs/brain/conventions/Idempotency.md](docs/brain/conventions/Idempotency.md) — Padrão de idempotência e hash canônico.
+- [docs/brain/services/MessagingWorkers.md](docs/brain/services/MessagingWorkers.md) — Especificação dos workers de fila e outbox.
+- [docs/DELIVERY_PLAN.md](docs/DELIVERY_PLAN.md) — Fases de entrega e critérios de aceite.

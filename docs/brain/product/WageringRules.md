@@ -13,6 +13,8 @@
 
 REFUND/ROLLBACK exigem mesmo provider, player, wallet, moeda e rodada; valor deve ser integralmente igual. A mesma referência só pode ser revertida uma vez por tipo.
 
+`WIN` pode referenciar opcionalmente uma `BET` da mesma rodada (mesmo provider, player, wallet, moeda e rodada). A referência deve ser do tipo `BET` e estar `PROCESSED`. Diferente de reversões, o montante de `WIN` é o prêmio e independe do valor apostado.
+
 Referência ausente não é falha imediata: vira `PENDING_REFERENCE`. Ao exceder TTL/tentativas, termina como rejeitada e emite evento.
 
 ## Distinções importantes

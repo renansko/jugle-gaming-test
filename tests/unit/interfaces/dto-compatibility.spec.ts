@@ -1,100 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
-
-const initialBalanceSchema = z.union([
-  z.string(),
-  z
-    .object({
-      amount: z.string(),
-      currency: z.string().regex(/^[A-Z]{3}$/).optional(),
-    })
-    .strict(),
-]);
-
-const createWalletSchema = z
-  .object({
-    playerId: z.string().min(1).max(128),
-    currency: z.string().regex(/^[A-Z]{3}$/),
-    initialBalance: initialBalanceSchema.optional(),
-  })
-  .strict()
-  .transform((data) => {
-    let initialBalance: string | undefined;
-    if (typeof data.initialBalance === "string") {
-      initialBalance = data.initialBalance;
-    } else if (data.initialBalance && typeof data.initialBalance === "object") {
-      initialBalance = data.initialBalance.amount;
-    }
-    return {
-      playerId: data.playerId,
-      currency: data.currency,
-      initialBalance,
-    };
-  });
-
-const transactionSchema = z
-  .object({
-    providerId: z.string().min(1).max(128),
-    externalTransactionId: z.string().min(1).max(255),
-    walletId: z.string().uuid(),
-    playerId: z.string().min(1).max(128),
-    currency: z.string().regex(/^[A-Z]{3}$/).optional(),
-    amount: z.string().optional(),
-    money: z
-      .object({
-        amount: z.string(),
-        currency: z.string().regex(/^[A-Z]{3}$/),
-      })
-      .strict()
-      .optional(),
-    kind: z.enum(["BET", "WIN", "LOSS", "REFUND", "ROLLBACK"]),
-    roundId: z.string().min(1).max(255),
-    gameId: z.string().min(1).max(255).optional(),
-    referenceExternalTransactionId: z.string().min(1).max(255).optional(),
-  })
-  .strict()
-  .superRefine((value, context) => {
-    const hasMoney = Boolean(value.money);
-    const hasAmountCurrency = Boolean(value.amount && value.currency);
-
-    if (!hasMoney && !hasAmountCurrency) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Either amount and currency or money object is required",
-        path: ["amount"],
-      });
-    }
-
-    if (
-      ["REFUND", "ROLLBACK"].includes(value.kind) &&
-      !value.referenceExternalTransactionId
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "A reference transaction is required for reversals",
-        path: ["referenceExternalTransactionId"],
-      });
-    }
-  })
-  .transform((value) => {
-    const amount = value.money ? value.money.amount : (value.amount as string);
-    const currency = value.money
-      ? value.money.currency
-      : (value.currency as string);
-
-    return {
-      providerId: value.providerId,
-      externalTransactionId: value.externalTransactionId,
-      walletId: value.walletId,
-      playerId: value.playerId,
-      currency,
-      amount,
-      kind: value.kind,
-      roundId: value.roundId,
-      gameId: value.gameId,
-      referenceExternalTransactionId: value.referenceExternalTransactionId,
-    };
-  });
+import { createWalletSchema } from "../../../src/interfaces/http/wallets/wallets.controller";
+import { transactionSchema } from "../../../src/interfaces/http/wagering/wagering.controller";
 
 describe("DTO Compatibility & Contract Flexibility", () => {
   describe("createWalletSchema", () => {
@@ -134,6 +40,37 @@ describe("DTO Compatibility & Contract Flexibility", () => {
         currency: "EUR",
         initialBalance: undefined,
       });
+    });
+
+    test("accepts initialBalance with amount and currency without root currency (challenge format)", () => {
+      const parsed = createWalletSchema.parse({
+        playerId: "player-1",
+        initialBalance: { amount: "1000.00", currency: "BRL" },
+      });
+      expect(parsed).toEqual({
+        playerId: "player-1",
+        currency: "BRL",
+        initialBalance: "1000.00",
+      });
+    });
+
+    test("rejects when neither root currency nor initialBalance.currency is provided", () => {
+      expect(() =>
+        createWalletSchema.parse({
+          playerId: "player-1",
+          initialBalance: "150.00",
+        }),
+      ).toThrow();
+    });
+
+    test("rejects when root currency and initialBalance.currency mismatch", () => {
+      expect(() =>
+        createWalletSchema.parse({
+          playerId: "player-1",
+          currency: "USD",
+          initialBalance: { amount: "1000.00", currency: "BRL" },
+        }),
+      ).toThrow();
     });
   });
 

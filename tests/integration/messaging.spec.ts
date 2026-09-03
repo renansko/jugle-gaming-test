@@ -164,9 +164,9 @@ integration("SQS messaging integration", () => {
       );
       expect(reconciliation.status).toBe(201);
       expect(await reconciliation.json()).toMatchObject({
-        storedBalance: "70.00",
-        calculatedBalance: "70.00",
-        difference: "0.00",
+        storedBalance: { amount: "70.00", currency: "BRL" },
+        calculatedBalance: { amount: "70.00", currency: "BRL" },
+        difference: { amount: "0.00", currency: "BRL" },
         consistent: true,
       });
 
@@ -307,8 +307,8 @@ integration("SQS messaging integration", () => {
         { method: "POST" },
       );
       expect(await reconciliation.json()).toMatchObject({
-        storedBalance: "75.00",
-        calculatedBalance: "75.00",
+        storedBalance: { amount: "75.00", currency: "BRL" },
+        calculatedBalance: { amount: "75.00", currency: "BRL" },
         consistent: true,
       });
     } finally {

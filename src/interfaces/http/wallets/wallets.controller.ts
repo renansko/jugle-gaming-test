@@ -17,7 +17,7 @@ import { DomainError } from "../../../domain/shared/domain-error";
 import { WalletService } from "../../../application/wallets/wallet.service";
 import { ReconciliationService } from "../../../application/wallets/reconciliation.service";
 
-const initialBalanceSchema = z.union([
+export const initialBalanceSchema = z.union([
   z.string(),
   z
     .object({
@@ -27,23 +27,51 @@ const initialBalanceSchema = z.union([
     .strict(),
 ]);
 
-const createWalletSchema = z
+export const createWalletSchema = z
   .object({
     playerId: z.string().min(1).max(128),
-    currency: z.string().regex(/^[A-Z]{3}$/),
+    currency: z.string().regex(/^[A-Z]{3}$/).optional(),
     initialBalance: initialBalanceSchema.optional(),
   })
   .strict()
+  .superRefine((data, ctx) => {
+    const objectCurrency =
+      typeof data.initialBalance === "object" && data.initialBalance !== null
+        ? data.initialBalance.currency
+        : undefined;
+
+    if (!data.currency && !objectCurrency) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required either at root or within initialBalance",
+        path: ["currency"],
+      });
+    }
+
+    if (data.currency && objectCurrency && data.currency !== objectCurrency) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Root currency and initialBalance currency must match",
+        path: ["initialBalance", "currency"],
+      });
+    }
+  })
   .transform((data) => {
     let initialBalance: string | undefined;
+    let currency = data.currency;
+
     if (typeof data.initialBalance === "string") {
       initialBalance = data.initialBalance;
     } else if (data.initialBalance && typeof data.initialBalance === "object") {
       initialBalance = data.initialBalance.amount;
+      if (!currency) {
+        currency = data.initialBalance.currency;
+      }
     }
+
     return {
       playerId: data.playerId,
-      currency: data.currency,
+      currency: currency as string,
       initialBalance,
     };
   });

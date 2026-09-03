@@ -37,6 +37,7 @@ export interface ProcessWagerInput {
 
 export interface ProcessWagerOutput {
   id: string;
+  transactionId: string;
   status: string;
   failureCode?: string;
   gameId?: string;
@@ -359,6 +360,7 @@ export class WageringService {
   ): Record<string, unknown> {
     return {
       id: transaction.id,
+      transactionId: transaction.id,
       providerId: transaction.providerId,
       externalTransactionId: transaction.externalTransactionId,
       walletId: transaction.walletId,
@@ -520,8 +522,13 @@ export class WageringService {
       return;
     }
 
+    const hasReference = Boolean(input.referenceExternalTransactionId);
+    const requiresReference =
+      input.kind === "REFUND" || input.kind === "ROLLBACK";
+    const allowsOptionalReference = input.kind === "WIN" && hasReference;
+
     let reference: WagerTransactionEntity | null = null;
-    if (input.kind === "REFUND" || input.kind === "ROLLBACK") {
+    if (requiresReference || allowsOptionalReference) {
       reference = await this.resolveAndValidateReference(
         entityManager,
         transaction,
@@ -596,36 +603,58 @@ export class WageringService {
       return null;
     }
 
-    const scopeMatches =
-      reference.playerId === input.playerId &&
-      reference.walletId === input.walletId &&
-      reference.currency === input.currency &&
-      reference.roundId === input.roundId;
-
-    if (!scopeMatches) {
+    if (!this.matchesScope(reference, input)) {
       this.reject(transaction, wallet, "REFERENCE_SCOPE_MISMATCH");
       return null;
     }
 
-    if (reference.amount !== amount.amount) {
+    if (this.isAmountMismatch(input.kind, reference.amount, amount.amount)) {
       this.reject(transaction, wallet, "REFERENCE_AMOUNT_MISMATCH");
       return null;
     }
 
-    if (input.kind === "REFUND" && reference.kind !== "BET") {
-      this.reject(transaction, wallet, "INVALID_REFERENCE_KIND");
-      return null;
-    }
-
-    if (
-      input.kind === "ROLLBACK" &&
-      !["BET", "WIN", "REFUND"].includes(reference.kind)
-    ) {
+    if (this.isInvalidReferenceKind(input.kind, reference.kind)) {
       this.reject(transaction, wallet, "INVALID_REFERENCE_KIND");
       return null;
     }
 
     return reference;
+  }
+
+  private matchesScope(
+    reference: WagerTransactionEntity,
+    input: ProcessWagerInput,
+  ): boolean {
+    return (
+      reference.playerId === input.playerId &&
+      reference.walletId === input.walletId &&
+      reference.currency === input.currency &&
+      reference.roundId === input.roundId
+    );
+  }
+
+  private isAmountMismatch(
+    kind: WagerKind,
+    referenceAmount: string | undefined,
+    inputAmount: string,
+  ): boolean {
+    if (kind === "WIN") {
+      return false;
+    }
+    return referenceAmount !== inputAmount;
+  }
+
+  private isInvalidReferenceKind(
+    kind: WagerKind,
+    referenceKind: string,
+  ): boolean {
+    if (kind === "REFUND" || kind === "WIN") {
+      return referenceKind !== "BET";
+    }
+    if (kind === "ROLLBACK") {
+      return !["BET", "WIN", "REFUND"].includes(referenceKind);
+    }
+    return false;
   }
 
   private reject(
@@ -733,6 +762,7 @@ export class WageringService {
   ): ProcessWagerOutput {
     return {
       id: transaction.id,
+      transactionId: transaction.id,
       status: transaction.status,
       failureCode: transaction.failureCode,
       gameId: transaction.gameId,

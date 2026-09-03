@@ -74,9 +74,9 @@ concurrency("Multi-wallet concurrency & system resilience", () => {
       expect(r.status).toBe(201);
       const data = await r.json();
       expect(data).toMatchObject({
-        storedBalance: "85.00",
-        calculatedBalance: "85.00",
-        difference: "0.00",
+        storedBalance: { amount: "85.00", currency: "BRL" },
+        calculatedBalance: { amount: "85.00", currency: "BRL" },
+        difference: { amount: "0.00", currency: "BRL" },
         consistent: true,
       });
     }

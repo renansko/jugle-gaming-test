@@ -78,8 +78,8 @@ concurrency("three-instance concurrency", () => {
       { method: "POST" },
     );
     expect(await reconciliation.json()).toMatchObject({
-      storedBalance: "20.00",
-      calculatedBalance: "20.00",
+      storedBalance: { amount: "20.00", currency: "BRL" },
+      calculatedBalance: { amount: "20.00", currency: "BRL" },
       consistent: true,
       checkedEntries: 2,
     });
@@ -105,8 +105,8 @@ concurrency("three-instance concurrency", () => {
       { method: "POST" },
     );
     expect(await reconciliation.json()).toMatchObject({
-      storedBalance: "20.00",
-      calculatedBalance: "20.00",
+      storedBalance: { amount: "20.00", currency: "BRL" },
+      calculatedBalance: { amount: "20.00", currency: "BRL" },
       consistent: true,
       checkedEntries: 2,
     });

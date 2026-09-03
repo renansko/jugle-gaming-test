@@ -10,7 +10,7 @@ Repositórios de wallet e ledger, logger estruturado e contador de divergências
 
 ## Contrato
 
-Retorna `storedBalance`, `calculatedBalance`, `difference`, `consistent` e `checkedEntries`. Usa a entrada `OPENING` como origem do saldo reconstruído.
+Retorna `walletId`, `storedBalance`, `calculatedBalance`, `difference` (cada um como objeto `{ amount, currency }`), `consistent` e `checkedEntries`. Usa a entrada `OPENING` como origem do saldo reconstruído.
 
 ## Regras
 

@@ -234,6 +234,7 @@ Invariantes principais:
 - o ledger é append-only, protegido contra `UPDATE` e `DELETE` por trigger;
 - `wallet.balance == saldo reconstruído pelo ledger`;
 - a mesma referência não pode ser revertida duas vezes pelo mesmo tipo;
+- `WIN` pode opcionalmente referenciar uma `BET` da mesma rodada; caso referenciada e ainda não presente, transiciona para `PENDING_REFERENCE`;
 - `PROCESSED`, `REJECTED` e `FAILED` são terminais.
 
 ## 7. Resiliência e falhas
@@ -243,8 +244,8 @@ dentro do mesmo grupo. Grupos de wallets diferentes continuam paralelos. A
 Inbox não ordena mensagens; ela deduplica entregas. A garantia financeira final
 vem das dependências de domínio, da idempotência, dos locks e das constraints.
 
-Se `REFUND` ou `ROLLBACK` chegar antes da transação referenciada, salvo a
-operação como `PENDING_REFERENCE`. Um worker com lease, tentativas persistentes
+Se `REFUND`, `ROLLBACK` ou `WIN` com referência chegar antes da transação referenciada,
+salvo a operação como `PENDING_REFERENCE`. Um worker com lease, tentativas persistentes
 e backoff procura a referência. Se ela chegar, a operação converge; se TTL ou
 tentativas acabarem, a rejeição fica auditável.
 
@@ -255,7 +256,7 @@ flowchart TD
     Valid -->|"Sim"| Duplicate{"Inbox ou operação já existe?"}
     Duplicate -->|"Mesmo hash"| Replay["Replay sem novo efeito"]
     Duplicate -->|"Hash diferente"| Conflict["Conflito permanente"]
-    Duplicate -->|"Nova"| Dependency{"REFUND ou ROLLBACK sem referência?"}
+    Duplicate -->|"Nova"| Dependency{"Operação dependente sem referência?"}
     Dependency -->|"Sim"| Pending["PENDING_REFERENCE + commit + ACK"]
     Pending --> RetryReference["Worker com lease e backoff"]
     RetryReference -->|"Referência chegou"| Resolve["Processa uma vez"]

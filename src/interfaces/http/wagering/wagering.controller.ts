@@ -21,7 +21,7 @@ import {
   WageringService,
 } from "../../../application/wagering/wagering.service";
 
-const transactionSchema = z
+export const transactionSchema = z
   .object({
     providerId: z.string().min(1).max(128),
     externalTransactionId: z.string().min(1).max(255),

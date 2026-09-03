@@ -71,9 +71,9 @@ integration("Reconciliation divergence & operational metrics", () => {
       expect(reconRes.status).toBe(201);
       const reconData = await reconRes.json();
       expect(reconData).toMatchObject({
-        storedBalance: "95.00",
-        calculatedBalance: "80.00",
-        difference: "15.00",
+        storedBalance: { amount: "95.00", currency: "BRL" },
+        calculatedBalance: { amount: "80.00", currency: "BRL" },
+        difference: { amount: "15.00", currency: "BRL" },
         consistent: false,
         checkedEntries: 2,
       });

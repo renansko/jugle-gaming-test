@@ -221,6 +221,8 @@ describe("WageringService Application Service", () => {
 
       expect(result.status).toBe("PROCESSED");
       expect(result.idempotentReplay).toBe(false);
+      expect(result.transactionId).toBeDefined();
+      expect(result.transactionId).toBe(result.id);
       expect(result.balance.amount).toBe("60.00");
       expect(wallet.balance).toBe("60.00");
       expect(wallet.version).toBe(2);
@@ -341,6 +343,226 @@ describe("WageringService Application Service", () => {
       expect(
         created.some((c) => c.entityClass === WalletLedgerEntryEntity),
       ).toBe(false);
+    });
+
+    test("processes WIN with optional reference to a PROCESSED BET in the same round", async () => {
+      const wallet: MockWallet = {
+        id: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        balance: "50.00",
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const referenceBet: MockTransaction = {
+        id: "tx-bet-1",
+        playerId: "p-1",
+        walletId: "w-1",
+        currency: "USD",
+        roundId: "r-1",
+        amount: "20.00",
+        kind: "BET",
+        status: "PROCESSED",
+        externalTransactionId: "bet-1",
+      };
+
+      const { orm, created } = createEmMock({
+        wallet,
+        referenceTx: referenceBet,
+      });
+      const service = new WageringService(orm, dummyMetrics);
+
+      const result = await service.execute({
+        idempotencyKey: "key-win-ref",
+        providerId: "prov-1",
+        externalTransactionId: "ext-win-ref",
+        walletId: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        amount: "100.00",
+        kind: "WIN",
+        roundId: "r-1",
+        referenceExternalTransactionId: "bet-1",
+      });
+
+      expect(result.status).toBe("PROCESSED");
+      expect(result.balance.amount).toBe("150.00");
+      expect(wallet.balance).toBe("150.00");
+      expect(
+        created.some((c) => c.entityClass === WalletLedgerEntryEntity),
+      ).toBe(true);
+    });
+
+    test("sets status to PENDING_REFERENCE when WIN references a missing BET", async () => {
+      const wallet: MockWallet = {
+        id: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        balance: "50.00",
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const { orm } = createEmMock({ wallet, referenceTx: undefined });
+      const service = new WageringService(orm, dummyMetrics);
+
+      const result = await service.execute({
+        idempotencyKey: "key-win-unresolved",
+        providerId: "prov-1",
+        externalTransactionId: "ext-win-unresolved",
+        walletId: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        amount: "50.00",
+        kind: "WIN",
+        roundId: "r-1",
+        referenceExternalTransactionId: "missing-bet",
+      });
+
+      expect(result.status).toBe("PENDING_REFERENCE");
+      expect(wallet.balance).toBe("50.00");
+    });
+
+    test("rejects WIN with INVALID_REFERENCE_KIND when referenced transaction is not a BET", async () => {
+      const wallet: MockWallet = {
+        id: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        balance: "50.00",
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const referenceNonBet: MockTransaction = {
+        id: "tx-prev-win",
+        playerId: "p-1",
+        walletId: "w-1",
+        currency: "USD",
+        roundId: "r-1",
+        amount: "20.00",
+        kind: "WIN",
+        status: "PROCESSED",
+        externalTransactionId: "win-1",
+      };
+
+      const { orm } = createEmMock({
+        wallet,
+        referenceTx: referenceNonBet,
+      });
+      const service = new WageringService(orm, dummyMetrics);
+
+      const result = await service.execute({
+        idempotencyKey: "key-win-invalid-kind",
+        providerId: "prov-1",
+        externalTransactionId: "ext-win-invalid-kind",
+        walletId: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        amount: "50.00",
+        kind: "WIN",
+        roundId: "r-1",
+        referenceExternalTransactionId: "win-1",
+      });
+
+      expect(result.status).toBe("REJECTED");
+      expect(result.failureCode).toBe("INVALID_REFERENCE_KIND");
+      expect(wallet.balance).toBe("50.00");
+    });
+
+    test("rejects WIN with REFERENCE_SCOPE_MISMATCH when referenced BET belongs to another round", async () => {
+      const wallet: MockWallet = {
+        id: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        balance: "50.00",
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const referenceOtherRound: MockTransaction = {
+        id: "tx-bet-other",
+        playerId: "p-1",
+        walletId: "w-1",
+        currency: "USD",
+        roundId: "r-other",
+        amount: "20.00",
+        kind: "BET",
+        status: "PROCESSED",
+        externalTransactionId: "bet-other",
+      };
+
+      const { orm } = createEmMock({
+        wallet,
+        referenceTx: referenceOtherRound,
+      });
+      const service = new WageringService(orm, dummyMetrics);
+
+      const result = await service.execute({
+        idempotencyKey: "key-win-scope-mismatch",
+        providerId: "prov-1",
+        externalTransactionId: "ext-win-scope-mismatch",
+        walletId: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        amount: "50.00",
+        kind: "WIN",
+        roundId: "r-1",
+        referenceExternalTransactionId: "bet-other",
+      });
+
+      expect(result.status).toBe("REJECTED");
+      expect(result.failureCode).toBe("REFERENCE_SCOPE_MISMATCH");
+    });
+
+    test("rejects WIN with REFERENCE_NOT_PROCESSED when referenced BET is not processed", async () => {
+      const wallet: MockWallet = {
+        id: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        balance: "50.00",
+        version: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const referenceUnprocessed: MockTransaction = {
+        id: "tx-bet-pending",
+        playerId: "p-1",
+        walletId: "w-1",
+        currency: "USD",
+        roundId: "r-1",
+        amount: "20.00",
+        kind: "BET",
+        status: "PENDING",
+        externalTransactionId: "bet-pending",
+      };
+
+      const { orm } = createEmMock({
+        wallet,
+        referenceTx: referenceUnprocessed,
+      });
+      const service = new WageringService(orm, dummyMetrics);
+
+      const result = await service.execute({
+        idempotencyKey: "key-win-not-processed",
+        providerId: "prov-1",
+        externalTransactionId: "ext-win-not-processed",
+        walletId: "w-1",
+        playerId: "p-1",
+        currency: "USD",
+        amount: "50.00",
+        kind: "WIN",
+        roundId: "r-1",
+        referenceExternalTransactionId: "bet-pending",
+      });
+
+      expect(result.status).toBe("REJECTED");
+      expect(result.failureCode).toBe("REFERENCE_NOT_PROCESSED");
     });
   });
 

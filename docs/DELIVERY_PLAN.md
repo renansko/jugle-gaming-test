@@ -1,6 +1,6 @@
 # Plano de entrega
 
-Execução detalhada: [ISSUE-01 — Distributed Wagering Processor](../prd/issue-01/README.md).
+Execução detalhada: [Arquitetura do Sistema](../ARCHITECTURE.md) e [Brain de Contexto](brain/index.md).
 
 ## Estratégia
 

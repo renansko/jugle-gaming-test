@@ -8,7 +8,9 @@ describe("LocalStack queue bootstrap", () => {
     expect(existsSync(initializer)).toBe(true);
     const metadata = statSync(initializer);
     expect(metadata.isFile()).toBe(true);
-    expect(metadata.mode & 0o111).not.toBe(0);
+    if (process.platform !== "win32") {
+      expect(metadata.mode & 0o111).not.toBe(0);
+    }
     const script = readFileSync(initializer, "utf8");
     expect(script).toContain("wager-transactions.fifo");
     expect(script).toContain("wager-transactions-dlq.fifo");

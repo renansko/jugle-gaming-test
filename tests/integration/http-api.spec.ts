@@ -101,9 +101,9 @@ integration("HTTP integration", () => {
     );
     expect(reconciliation.status).toBe(201);
     expect(await reconciliation.json()).toMatchObject({
-      storedBalance: "80.00",
-      calculatedBalance: "80.00",
-      difference: "0.00",
+      storedBalance: { amount: "80.00", currency: "BRL" },
+      calculatedBalance: { amount: "80.00", currency: "BRL" },
+      difference: { amount: "0.00", currency: "BRL" },
       consistent: true,
       checkedEntries: 2,
     });
