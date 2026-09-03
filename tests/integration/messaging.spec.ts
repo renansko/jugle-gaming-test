@@ -122,6 +122,8 @@ integration("SQS messaging integration", () => {
 
     try {
       const transaction = await waitFor(async () => {
+        await harness.consumeOnce();
+        await harness.publishUntilIdle().catch(() => undefined);
         const res = await pgClient.query(
           "select * from wager_transactions where provider_id = 'sqs-provider' and external_transaction_id = $1",
           [externalTransactionId],
@@ -254,6 +256,7 @@ integration("SQS messaging integration", () => {
 
     try {
       await waitFor(async () => {
+        await harness.consumeOnce();
         const res = await pgClient.query(
           "select * from wager_transactions where provider_id = 'sqs-provider' and external_transaction_id = $1",
           [externalTransactionId],

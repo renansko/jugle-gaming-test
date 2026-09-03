@@ -49,8 +49,8 @@ export class MessagingHarness {
     return this.publisher;
   }
 
-  public async consumeOnce(): Promise<void> {
-    await this.consumer.pollOnce(1);
+  public async consumeOnce(waitTimeSeconds = 5): Promise<void> {
+    await this.consumer.pollOnce(waitTimeSeconds);
   }
 
   public async publishUntilIdle(maxBatches = 100): Promise<void> {
