@@ -26,3 +26,4 @@
 - 2026-09-02 | ISSUE-13 | Carga curta reproduzível em três réplicas com relatório, reconciliação, contagens e convergência da outbox; latência promovida a histograma e dashboard/CI ampliados.
 - 2026-09-02 | decisão de autenticação | Autenticação adiada; guard global, `ProviderIdentityPort`, adaptador allow-all e health público tornam explícito o ponto de extensão sem alegar proteção efetiva.
 - 2026-09-02 | ISSUE-13 | CI de carga aguarda as três réplicas em `/health/ready` antes do runner; readiness confirma PostgreSQL e SQS.
+- 2026-09-02 | documentação de arquitetura | `ARCHITECTURE.md` reescrito como registro visual do raciocínio, trade-offs, garantias de mensageria, limites comprovados e perguntas de descoberta com o cliente.

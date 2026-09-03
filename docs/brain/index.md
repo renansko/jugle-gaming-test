@@ -2,7 +2,7 @@
 
 ## Como utilizar
 
-Este é o ponto de entrada para decisões, invariantes e contratos do sistema. Consulte também [Arquitetura](../../ARCHITECTURE.md), [Plano de entrega](../DELIVERY_PLAN.md) e [ISSUE-01](../../prd/issue-01/README.md).
+Este é o ponto de entrada para decisões, invariantes e contratos do sistema. Consulte também [Arquitetura](../../ARCHITECTURE.md), [Plano de entrega](../DELIVERY_PLAN.md) e as [issues públicas](https://github.com/renansko/jugle-gaming-test/issues).
 
 ## Entidades
 
