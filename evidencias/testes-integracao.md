@@ -86,7 +86,7 @@ flowchart LR
     Result --> Stack["PostgreSQL + LocalStack"]
 ```
 
-O job `integration` do Action 33697194049 executou `bun run hardening` e aprovou
+O job `integration` do Action 33703096311 executou `bun run hardening` e aprovou
 **19 testes de integração** com PostgreSQL e LocalStack. A contagem não inclui
 os quatro testes de concorrência executados em seguida.
 
@@ -95,4 +95,4 @@ os quatro testes de concorrência executados em seguida.
 - [Testes de integração](../tests/integration)
 - [Harness compartilhado](../tests/support)
 - [Workflow de CI](../.github/workflows/ci.yml)
-- [Action verde — job `integration`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
+- [Action verde — job `integration`](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)

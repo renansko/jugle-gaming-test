@@ -9,7 +9,7 @@ const evidenceFiles = [
   "evidencias/carga-curta.md",
 ];
 const successfulActionRun =
-  "https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049";
+  "https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311";
 
 describe("README delivery evidence", () => {
   const readme = readFileSync("README.md", "utf8");
@@ -26,11 +26,11 @@ describe("README delivery evidence", () => {
 
   test("links the live CI and reports only metrics supported by hardening", () => {
     expect(readme).toContain("actions/workflows/ci.yml/badge.svg?branch=main");
-    expect(readme).toContain("| Testes unitários | 87 aprovados |");
+    expect(readme).toContain("| Testes unitários | 102 aprovados |");
     expect(readme).toContain("| Testes de integração | 19 aprovados |");
     expect(readme).toContain("| Testes de concorrência | 4 aprovados |");
     expect(readme).toContain("| Instâncias simultâneas | 3 réplicas saudáveis |");
-    expect(readme).toContain("| Carga curta no CI | 1.001 requisições; 0 falhas técnicas |");
+    expect(readme).toContain("| Carga curta no CI | 1.398 requisições; 0 falhas técnicas |");
   });
 
   test("references the successful Action run and local evidence instead of issues", () => {

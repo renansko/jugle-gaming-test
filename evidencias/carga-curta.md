@@ -87,15 +87,15 @@ negócio ou conflitos idempotentes como indisponibilidade técnica.
 
 ```mermaid
 flowchart LR
-    Run["Action 33697194049"] --> Rate["100,1 req/s"]
-    Run --> P50["p50 70,80 ms"]
-    Run --> P95["p95 175,90 ms"]
-    Run --> P99["p99 282,40 ms"]
+    Run["Action 33703096311"] --> Rate["139,8 req/s"]
+    Run --> P50["p50 49,54 ms"]
+    Run --> P95["p95 120,45 ms"]
+    Run --> P99["p99 180,99 ms"]
     Run --> Exit["Exit code 0"]
 ```
 
 O artefato do Action registra commit, ambiente, massa isolada, comandos,
-metodologia, 1.001 requisições e convergência da outbox de pico 903 para zero.
+metodologia, 1.398 requisições e convergência da outbox de pico 1605 para zero.
 São métricas do runner hospedado pelo GitHub, não um SLO de produção.
 
 ## Referências no código
@@ -104,4 +104,4 @@ São métricas do runner hospedado pelo GitHub, não um SLO de produção.
 - [Runner de carga](../scripts/load/run-short-load.ts)
 - [Contrato do relatório](../scripts/load/load-report.ts)
 - [Dashboard Grafana](../docker/grafana/provisioning/dashboards/wagering-dashboard.json)
-- [Action verde — job `load-test`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
+- [Action verde — job `load-test`](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)

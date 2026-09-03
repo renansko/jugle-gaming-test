@@ -12,7 +12,7 @@ mindmap
 ```
 
 Este catálogo liga cada afirmação verificável ao comando, ao resultado registrado
-e ao [Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
+e ao [Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)
 que permite auditá-la.
 
 ## Contexto do problema
@@ -87,22 +87,22 @@ abaixo de um valor arbitrário.
 
 ```mermaid
 flowchart LR
-    Unit["Unidade: 87"] --> Gate["Hardening: 110 testes"]
+    Unit["Unidade: 102"] --> Gate["Hardening: 125 testes"]
     Integration["Integração: 19"] --> Gate
     Concurrency["Concorrência: 4"] --> Gate
-    Load["Carga CI: 1.001 requisições"] --> Report["Artefato do Action"]
+    Load["Carga CI: 1.398 requisições"] --> Report["Artefato do Action"]
 ```
 
 | Evidência | Resultado versionado |
 |---|---|
-| [Testes unitários](testes-unitarios.md) | 87 aprovados no Action |
+| [Testes unitários](testes-unitarios.md) | 102 aprovados no Action |
 | [Testes de integração](testes-integracao.md) | 19 aprovados |
 | [Testes de concorrência](testes-concorrencia.md) | 4 aprovados em três réplicas |
-| [Carga curta](carga-curta.md) | 1.001 requisições; 0 falhas técnicas; invariantes válidas |
+| [Carga curta](carga-curta.md) | 1.398 requisições; 0 falhas técnicas; invariantes válidas |
 
 ## Referências no código
 
 - [Suítes de testes](../tests)
 - [Workflow de CI](../.github/workflows/ci.yml)
 - [Relatório de carga](../docs/load/short-load-report.md)
-- [Action verde — run 33697194049](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
+- [Action verde — run 33703096311](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)

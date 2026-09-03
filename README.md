@@ -174,17 +174,17 @@ PostgreSQL e LocalStack, mantém três réplicas da aplicação e roda o hardeni
 
 | Evidência | Resultado comprovado |
 |---|---|
-| Testes unitários | 87 aprovados |
+| Testes unitários | 102 aprovados |
 | Testes de integração | 19 aprovados |
 | Testes de concorrência | 4 aprovados |
-| Total do hardening | 110 testes aprovados |
-| Carga curta no CI | 1.001 requisições; 0 falhas técnicas |
+| Total do hardening | 125 testes aprovados |
+| Carga curta no CI | 1.398 requisições; 0 falhas técnicas |
 | Instâncias simultâneas | 3 réplicas saudáveis |
 | Migrations | `up → down → up` desde banco vazio |
 | Índices críticos | 4 verificados por plano de execução |
 | Documentação do Brain | 23 links internos validados |
 
-Esses resultados estão no [Action verde do commit `db917b0`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049).
+Esses resultados estão no [Action verde do commit `089ef30`](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311).
 As demais execuções ficam disponíveis no [histórico público do CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
 no [roteiro reproduzível de hardening](docs/HARDENING.md) e nos próprios
 [testes](tests). A apresentação privilegia provas reproduzíveis, sem
@@ -234,15 +234,15 @@ docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml ru
 ```
 
 O perfil padrão aquece por 2 s e mede 10 s com concorrência 8. O
-[Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
-executou 1.001 requisições a 100,1 req/s, com p50 de 70,80 ms, p95 de 175,90 ms
-e p99 de 282,40 ms, sem falha técnica. A outbox chegou a 903 pendências e
+[Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)
+executou 1.398 requisições a 139,8 req/s, com p50 de 49,54 ms, p95 de 120,45 ms
+e p99 de 180,99 ms, sem falha técnica. A outbox chegou a 1.605 pendências e
 convergiu a zero; oito wallets reconciliaram saldo e ledger. Não existe gate mínimo de
 RPS: desempenho é reportado, enquanto erro técnico ou quebra de invariante
 falha o comando.
 
 Veja o [relatório completo](docs/load/short-load-report.md), o
-[execução pública no CI](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049),
+[execução pública no CI](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311),
 o [Grafana local](http://localhost:3001) e a documentação de carga
 versionada. Os resultados são locais, curtos e dependentes do host; não
 equivalem a um SLO de produção.
