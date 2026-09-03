@@ -174,10 +174,10 @@ PostgreSQL e LocalStack, mantém três réplicas da aplicação e roda o hardeni
 
 | Evidência | Resultado comprovado |
 |---|---|
-| Testes unitários | 110 aprovados |
-| Testes de integração | 22 aprovados |
-| Testes de concorrência | 4 aprovados |
-| Total do hardening | 136 testes aprovados |
+| Testes unitários | 152 aprovados |
+| Testes de integração | 28 aprovados |
+| Testes de concorrência | 5 aprovados |
+| Total do hardening | 185 testes aprovados |
 | Carga curta no CI | 1.398 requisições; 0 falhas técnicas |
 | Instâncias simultâneas | 3 réplicas saudáveis |
 | Migrations | `up → down → up` desde banco vazio |

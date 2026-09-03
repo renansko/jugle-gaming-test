@@ -83,10 +83,10 @@ parcial como suíte verde.
 ```mermaid
 flowchart LR
     Action["Action 33705456587"] --> Command["bun run check"]
-    Command --> Result["110 testes aprovados"]
+    Command --> Result["152 testes aprovados"]
 ```
 
-O job `check` do Action 33705456587 aprovou **110 testes unitários**, com lint e
+O job `check` do Action 33705456587 aprovou **152 testes unitários**, com lint e
 TypeScript verdes. O job `integration` repetiu essa suíte dentro de
 `bun run hardening` antes dos testes com dependências reais.
 

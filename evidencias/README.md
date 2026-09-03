@@ -87,17 +87,17 @@ abaixo de um valor arbitrário.
 
 ```mermaid
 flowchart LR
-    Unit["Unidade: 102"] --> Gate["Hardening: 125 testes"]
-    Integration["Integração: 19"] --> Gate
-    Concurrency["Concorrência: 4"] --> Gate
+    Unit["Unidade: 152"] --> Gate["Hardening: 185 testes"]
+    Integration["Integração: 28"] --> Gate
+    Concurrency["Concorrência: 5"] --> Gate
     Load["Carga CI: 1.398 requisições"] --> Report["Artefato do Action"]
 ```
 
 | Evidência | Resultado versionado |
 |---|---|
-| [Testes unitários](testes-unitarios.md) | 110 aprovados no Action |
-| [Testes de integração](testes-integracao.md) | 22 aprovados |
-| [Testes de concorrência](testes-concorrencia.md) | 4 aprovados em três réplicas |
+| [Testes unitários](testes-unitarios.md) | 152 aprovados |
+| [Testes de integração](testes-integracao.md) | 28 aprovados |
+| [Testes de concorrência](testes-concorrencia.md) | 5 aprovados em três réplicas |
 | [Carga curta](carga-curta.md) | 1.398 requisições; 0 falhas técnicas; invariantes válidas |
 
 ## Referências no código

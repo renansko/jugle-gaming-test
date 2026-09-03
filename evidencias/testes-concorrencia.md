@@ -89,11 +89,11 @@ idempotentes.
 
 ```mermaid
 flowchart LR
-    Command["bun run test:concurrency"] --> Result["4 testes aprovados"]
+    Command["bun run test:concurrency"] --> Result["5 testes aprovados"]
     Result --> Replicas["3 réplicas saudáveis"]
 ```
 
-O job `integration` do Action 33705456587 aprovou **4 testes de concorrência**
+O job `integration` do Action 33705456587 aprovou **5 testes de concorrência**
 em três réplicas, incluindo a reconciliação matemática do banco.
 
 ## Referências no código

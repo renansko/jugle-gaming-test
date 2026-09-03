@@ -26,9 +26,9 @@ describe("README delivery evidence", () => {
 
   test("links the live CI and reports only metrics supported by hardening", () => {
     expect(readme).toContain("actions/workflows/ci.yml/badge.svg?branch=main");
-    expect(readme).toContain("| Testes unitários | 110 aprovados |");
-    expect(readme).toContain("| Testes de integração | 22 aprovados |");
-    expect(readme).toContain("| Testes de concorrência | 4 aprovados |");
+    expect(readme).toContain("| Testes unitários | 152 aprovados |");
+    expect(readme).toContain("| Testes de integração | 28 aprovados |");
+    expect(readme).toContain("| Testes de concorrência | 5 aprovados |");
     expect(readme).toContain("| Instâncias simultâneas | 3 réplicas saudáveis |");
     expect(readme).toContain("| Carga curta no CI | 1.398 requisições; 0 falhas técnicas |");
   });
