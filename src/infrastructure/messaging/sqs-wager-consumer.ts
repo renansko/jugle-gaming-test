@@ -290,7 +290,12 @@ export class SqsWagerConsumer {
 
       this.recordRedeliveryAndReplay(envelope.messageId, attributes, output);
     } catch (error) {
-      await this.handleProcessingError(error, JSON.stringify(envelope), receiptHandle);
+      await this.handleProcessingError(
+        error,
+        JSON.stringify(envelope),
+        receiptHandle,
+        attributes,
+      );
       return;
     } finally {
       if (visibilityTimer) {
@@ -378,19 +383,56 @@ export class SqsWagerConsumer {
     error: unknown,
     body: string,
     receiptHandle?: string,
+    attributes?: Record<string, string>,
   ): Promise<void> {
-    const isPermanentDomainError =
-      error instanceof DomainError &&
-      !["DEPENDENCY_UNAVAILABLE"].includes(error.code);
-
-    if (isPermanentDomainError) {
+    if (this.isPermanentDomainError(error)) {
       if (receiptHandle) {
         await this.toDlq(body, receiptHandle, "permanent_failure");
       }
       return;
     }
 
+    await this.handleTransientError(body, receiptHandle, attributes);
+  }
+
+  private isPermanentDomainError(error: unknown): boolean {
+    return (
+      error instanceof DomainError &&
+      !["DEPENDENCY_UNAVAILABLE"].includes(error.code)
+    );
+  }
+
+  private async handleTransientError(
+    body: string,
+    receiptHandle?: string,
+    attributes?: Record<string, string>,
+  ): Promise<void> {
+    const receiveCount = Number(attributes?.ApproximateReceiveCount ?? 1);
+
+    if (receiveCount >= this.config.sqsMaxReceiveCount) {
+      if (receiptHandle) {
+        await this.toDlq(body, receiptHandle, "max_retries_exceeded");
+      }
+      this.metrics.increment("sqs_retries_total", { status: "exhausted" });
+      return;
+    }
+
+    if (receiptHandle) {
+      const backoffSeconds = this.calculateBackoffSeconds(receiveCount);
+      await this.client.send(
+        new ChangeMessageVisibilityCommand({
+          QueueUrl: this.config.wagerQueueUrl,
+          ReceiptHandle: receiptHandle,
+          VisibilityTimeout: backoffSeconds,
+        }),
+      );
+    }
+
     this.metrics.increment("sqs_retries_total", { status: "transient" });
+  }
+
+  private calculateBackoffSeconds(receiveCount: number): number {
+    return Math.min(300, Math.max(1, 2 ** (receiveCount - 1)));
   }
 
   private async deleteProcessedMessage(receiptHandle: string): Promise<void> {

@@ -247,4 +247,94 @@ describe("OutboxPublisher", () => {
       claimedLeaseToken,
     ]);
   });
+
+  test("generates unique lease tokens for separate publisher instances and matches token on finalize", async () => {
+    const messageA = {
+      id: "event-a",
+      payload: { aggregateId: "agg-a" },
+      attemptCount: 0,
+      nextAttemptAt: new Date(),
+    };
+    const messageB = {
+      id: "event-b",
+      payload: { aggregateId: "agg-b" },
+      attemptCount: 0,
+      nextAttemptAt: new Date(),
+    };
+
+    const claimedTokens: string[] = [];
+    const finalizeQueries: Array<{ query: string; params?: unknown[] }> = [];
+
+    const createManager = (msg: typeof messageA) => {
+      const manager: PublisherTestManager = {
+        getConnection: () => ({
+          execute: async (query: string, params?: unknown[]) => {
+            if (query.includes("RETURNING outbox_alias.id")) {
+              const token = String(params?.[2]);
+              claimedTokens.push(token);
+              return [{ id: msg.id, lease_token: token }];
+            }
+            if (query.includes("SET published_at = NOW()")) {
+              finalizeQueries.push({ query, params });
+              return [];
+            }
+            if (query.includes("COUNT(*)::text AS pending")) {
+              return [{ pending: "0", lagMs: "0" }];
+            }
+            return [];
+          },
+        }),
+        find: async () => [msg],
+        transactional: async <T>(
+          callback: (transactionManager: PublisherTestManager) => Promise<T>,
+        ) => callback(manager),
+      };
+      return manager;
+    };
+
+    const client = {
+      send: async (command: { input: { Entries?: Array<{ Id: string }> } }) => {
+        const id = command.input.Entries?.[0]?.Id ?? "event";
+        return { Successful: [{ Id: id }], Failed: [] };
+      },
+      destroy: () => undefined,
+    };
+
+    const config = {
+      awsRegion: "us-east-1",
+      sqsEndpoint: "http://localhost:4566",
+      awsAccessKeyId: "test",
+      awsSecretAccessKey: "test",
+      eventQueueUrl: "http://localhost:4566/events",
+    };
+    const metrics = { increment: () => undefined, set: () => undefined };
+
+    const pubA = new OutboxPublisher(
+      config as never,
+      { em: { fork: () => createManager(messageA) } } as never,
+      metrics as never,
+      client as never,
+    );
+    const pubB = new OutboxPublisher(
+      config as never,
+      { em: { fork: () => createManager(messageB) } } as never,
+      metrics as never,
+      client as never,
+    );
+
+    const [resA, resB] = await Promise.all([
+      pubA.publishBatch(),
+      pubB.publishBatch(),
+    ]);
+
+    expect(resA).toEqual({ published: 1, retried: 0 });
+    expect(resB).toEqual({ published: 1, retried: 0 });
+    expect(claimedTokens).toHaveLength(2);
+    expect(claimedTokens[0]).not.toBe(claimedTokens[1]);
+
+    const finalizeA = finalizeQueries.find((q) => q.params?.[0] === "event-a");
+    const finalizeB = finalizeQueries.find((q) => q.params?.[0] === "event-b");
+    expect(finalizeA?.params?.[1]).toBe(claimedTokens[0]);
+    expect(finalizeB?.params?.[1]).toBe(claimedTokens[1]);
+  });
 });

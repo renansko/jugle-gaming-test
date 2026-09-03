@@ -19,6 +19,7 @@ const environmentSchema = z.object({
     .min(100)
     .max(60000)
     .default(5000),
+  SQS_MAX_RECEIVE_COUNT: z.coerce.number().int().min(1).default(5),
   TEST_WORKERS_AUTOSTART: z.enum(["true", "false"]).optional(),
 }).superRefine((environment, context) => {
   if (
@@ -47,6 +48,7 @@ export class AppConfig {
     public readonly eventQueueUrl: string,
     public readonly autostartWorkers: boolean,
     public readonly shutdownGracePeriodMs: number = 5000,
+    public readonly sqsMaxReceiveCount: number = 5,
   ) {}
 }
 
@@ -72,6 +74,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     value.SQS_EVENT_QUEUE_URL,
     value.NODE_ENV !== "test" || value.TEST_WORKERS_AUTOSTART === "true",
     value.SHUTDOWN_GRACE_PERIOD_MS,
+    value.SQS_MAX_RECEIVE_COUNT,
   );
 }
 

@@ -30,3 +30,9 @@
 
 O código é estável e legível por máquina. Mensagem humana pode evoluir sem mudar a decisão de retry do cliente.
 
+## Motivos operacionais de DLQ
+
+- `invalid_payload`: payload JSON malformado ou violação estrutural de envelope/schema;
+- `permanent_failure`: falha de domínio não recuperável (ex.: `WALLET_NOT_FOUND`);
+- `max_retries_exceeded`: contagem de recebimento (`ApproximateReceiveCount`) atinge o limite configurável após retries com backoff.
+

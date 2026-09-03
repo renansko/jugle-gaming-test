@@ -26,6 +26,8 @@ Cliente SQS, relógio, unit of work, repositórios e métricas.
 - uma reversão pendente converge quando a referência válida aparece; o estado pendente anterior não impede a reaplicação;
 - leases expirados e pendências sem agenda voltam a ser elegíveis;
 - nenhum lock SQL é mantido durante chamada de rede ao SQS;
+- interrupção do publisher após commit financeiro deixa a outbox elegível para reivindicação por outra instância;
+- múltiplos publishers concorrentes usam `SKIP LOCKED` e `lease_token` exclusivos sem perda nem duplo processamento sob lease ativo;
 - publicação total agenda backoff e limpa o lease; resposta parcial finaliza
   apenas sucessos e agenda retry apenas das falhas; resultado ambíguo conserva
   o ID estável para duplicação at-least-once.

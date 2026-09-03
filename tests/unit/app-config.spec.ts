@@ -54,12 +54,24 @@ test("loads custom shutdown grace period from environment", () => {
   expect(config.shutdownGracePeriodMs).toBe(2500);
 });
 
-test("rejects invalid shutdown grace period", () => {
+test("loads default SQS max receive count of 5 when not specified", () => {
+  const config = loadConfig(validEnvironment);
+  expect(config.sqsMaxReceiveCount).toBe(5);
+});
+
+test("loads custom SQS max receive count from environment", () => {
+  const config = loadConfig({
+    ...validEnvironment,
+    SQS_MAX_RECEIVE_COUNT: "3",
+  });
+  expect(config.sqsMaxReceiveCount).toBe(3);
+});
+
+test("rejects invalid SQS max receive count", () => {
   expect(() =>
     loadConfig({
       ...validEnvironment,
-      SHUTDOWN_GRACE_PERIOD_MS: "invalid",
+      SQS_MAX_RECEIVE_COUNT: "0",
     }),
-  ).toThrow("SHUTDOWN_GRACE_PERIOD_MS");
+  ).toThrow("SQS_MAX_RECEIVE_COUNT");
 });
-

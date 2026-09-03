@@ -37,8 +37,16 @@ export class MessagingHarness {
     return this.coordinator.isRunning();
   }
 
+  public get<T>(token: (new (...args: never[]) => T) | (abstract new (...args: never[]) => T) | unknown): T {
+    return this.application.get(token as never);
+  }
+
   public getConsumer(): SqsWagerConsumer {
     return this.consumer;
+  }
+
+  public getPublisher(): OutboxPublisher {
+    return this.publisher;
   }
 
   public async consumeOnce(): Promise<void> {
