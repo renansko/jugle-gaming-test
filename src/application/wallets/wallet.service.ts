@@ -125,6 +125,26 @@ export class WalletService {
     return isolatedEntityManager.findOne(WalletEntity, { id });
   }
 
+  private buildLedgerParameters(
+    walletId: string,
+    decodedCursor: DecodedCursor | undefined,
+    pageSize: number,
+  ): unknown[] {
+    const cursorDate = decodedCursor ? decodedCursor.createdAt : null;
+    const cursorId = decodedCursor ? decodedCursor.id : null;
+    return [walletId, cursorDate, cursorDate, cursorId, pageSize + 1];
+  }
+
+  private buildNextCursor(
+    hasMoreItems: boolean,
+    lastItem?: WalletLedgerEntryEntity,
+  ): string | undefined {
+    if (!hasMoreItems || !lastItem) {
+      return undefined;
+    }
+    return this.encodeCursor(lastItem.createdAt, lastItem.id);
+  }
+
   public async ledger(
     walletId: string,
     cursor: string | undefined,
@@ -149,13 +169,11 @@ export class WalletService {
       LIMIT ?
     `;
 
-    const parameters = [
+    const parameters = this.buildLedgerParameters(
       walletId,
-      decodedCursor?.createdAt ?? null,
-      decodedCursor?.createdAt ?? null,
-      decodedCursor?.id ?? null,
-      pageSize + 1,
-    ];
+      decodedCursor,
+      pageSize,
+    );
 
     const rows = await this.orm.em
       .fork()
@@ -164,12 +182,7 @@ export class WalletService {
 
     const hasMoreItems = rows.length > pageSize;
     const items = rows.slice(0, pageSize);
-    const lastItem = items.at(-1);
-
-    const nextCursor =
-      hasMoreItems && lastItem
-        ? this.encodeCursor(lastItem.createdAt, lastItem.id)
-        : undefined;
+    const nextCursor = this.buildNextCursor(hasMoreItems, items.at(-1));
 
     return {
       items,
@@ -185,37 +198,27 @@ export class WalletService {
     return Buffer.from(JSON.stringify(payload)).toString("base64url");
   }
 
+  private validateCursorRecord(parsed: unknown): DecodedCursor {
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("Cursor payload must be an object");
+    }
+    const record = parsed as Record<string, unknown>;
+    if (typeof record.createdAt !== "string" || typeof record.id !== "string") {
+      throw new Error("Cursor missing required fields");
+    }
+    if (Number.isNaN(Date.parse(record.createdAt))) {
+      throw new Error("Invalid field types in cursor");
+    }
+    return {
+      createdAt: record.createdAt,
+      id: record.id,
+    };
+  }
+
   private decodeCursor(cursor: string): DecodedCursor {
     try {
-      const decodedJson: unknown = JSON.parse(
-        Buffer.from(cursor, "base64url").toString("utf8"),
-      );
-
-      const isObject = typeof decodedJson === "object" && decodedJson !== null;
-      if (!isObject) {
-        throw new Error("Cursor payload must be an object");
-      }
-
-      const hasRequiredFields =
-        "createdAt" in decodedJson && "id" in decodedJson;
-      if (!hasRequiredFields) {
-        throw new Error("Cursor missing required fields");
-      }
-
-      const parsed = decodedJson as Record<string, unknown>;
-      const areTypesValid =
-        typeof parsed.createdAt === "string" && typeof parsed.id === "string";
-      const isValidDate =
-        areTypesValid && !Number.isNaN(Date.parse(parsed.createdAt as string));
-
-      if (!areTypesValid || !isValidDate) {
-        throw new Error("Invalid field types in cursor");
-      }
-
-      return {
-        createdAt: parsed.createdAt as string,
-        id: parsed.id as string,
-      };
+      const jsonString = Buffer.from(cursor, "base64url").toString("utf8");
+      return this.validateCursorRecord(JSON.parse(jsonString));
     } catch {
       throw new DomainError("INVALID_CURSOR", "Cursor is invalid");
     }

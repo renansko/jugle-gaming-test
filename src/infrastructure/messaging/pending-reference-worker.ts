@@ -29,6 +29,59 @@ export class PendingReferenceWorker {
     private readonly metrics: OperationalMetrics,
   ) {}
 
+  private isRowExpired(
+    row: ClaimedPendingReference,
+    ttlMs: number,
+    maxAttempts: number,
+  ): boolean {
+    const ageMs = Date.now() - new Date(row.created_at).getTime();
+    return ageMs >= ttlMs || row.reference_attempt_count >= maxAttempts;
+  }
+
+  private async tryExpireRow(row: ClaimedPendingReference): Promise<boolean> {
+    const correlationId = row.id;
+    const didExpire = await this.wagering.expirePendingReference(row.id, {
+      correlationId,
+    });
+
+    if (didExpire) {
+      this.metrics.increment("pending_reference_expired_total");
+      this.logger.warn(
+        JSON.stringify({
+          event: "pending_reference_expired",
+          correlationId,
+          transactionId: row.id,
+        }),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  private async resolveClaimedRow(
+    row: ClaimedPendingReference,
+  ): Promise<"resolved" | "still_pending" | "ignored"> {
+    const correlationId = row.id;
+    const result = await this.wagering.resolvePendingReference(row.id, {
+      correlationId,
+    });
+
+    if (result === "resolved") {
+      this.metrics.increment("pending_reference_resolved_total");
+      this.logger.log(
+        JSON.stringify({
+          event: "pending_reference_resolved",
+          correlationId,
+          transactionId: row.id,
+        }),
+      );
+    } else if (result === "still_pending") {
+      this.metrics.increment("pending_reference_retries_total");
+    }
+
+    return result;
+  }
+
   public async processBatch(
     limit = 20,
     ttlMs = 86_400_000,
@@ -67,50 +120,19 @@ export class PendingReferenceWorker {
     let expiredCount = 0;
 
     for (const row of claimedRows) {
-      const correlationId = row.id;
-      const ageMs = Date.now() - new Date(row.created_at).getTime();
-      const hasExceededTtl = ageMs >= ttlMs;
-      const hasExceededAttempts = row.reference_attempt_count >= maxAttempts;
-
-      if (hasExceededTtl || hasExceededAttempts) {
-        const didExpire = await this.wagering.expirePendingReference(row.id, {
-          correlationId,
-        });
-
+      if (this.isRowExpired(row, ttlMs, maxAttempts)) {
+        const didExpire = await this.tryExpireRow(row);
         if (didExpire) {
           expiredCount += 1;
-          this.metrics.increment("pending_reference_expired_total");
-          this.logger.warn(
-            JSON.stringify({
-              event: "pending_reference_expired",
-              correlationId,
-              transactionId: row.id,
-            }),
-          );
         }
         continue;
       }
 
-      const resolutionResult = await this.wagering.resolvePendingReference(
-        row.id,
-        {
-          correlationId,
-        },
-      );
-
+      const resolutionResult = await this.resolveClaimedRow(row);
       if (resolutionResult === "resolved") {
         resolvedCount += 1;
-        this.metrics.increment("pending_reference_resolved_total");
-        this.logger.log(
-          JSON.stringify({
-            event: "pending_reference_resolved",
-            correlationId,
-            transactionId: row.id,
-          }),
-        );
       } else if (resolutionResult === "still_pending") {
         retriedCount += 1;
-        this.metrics.increment("pending_reference_retries_total");
       }
     }
 

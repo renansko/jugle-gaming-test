@@ -27,6 +27,40 @@ export const initialBalanceSchema = z.union([
     .strict(),
 ]);
 
+function extractObjectCurrency(initialBalance: unknown): string | undefined {
+  if (!initialBalance || typeof initialBalance !== "object") {
+    return undefined;
+  }
+  if (!("currency" in initialBalance)) {
+    return undefined;
+  }
+  return (initialBalance as { currency?: string }).currency;
+}
+
+function validateCurrencies(
+  data: { currency?: string; initialBalance?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  const objectCurrency = extractObjectCurrency(data.initialBalance);
+
+  if (!data.currency && !objectCurrency) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Currency is required either at root or within initialBalance",
+      path: ["currency"],
+    });
+    return;
+  }
+
+  if (data.currency && objectCurrency && data.currency !== objectCurrency) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Root currency and initialBalance currency must match",
+      path: ["initialBalance", "currency"],
+    });
+  }
+}
+
 export const createWalletSchema = z
   .object({
     playerId: z.string().min(1).max(128),
@@ -35,26 +69,7 @@ export const createWalletSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    const objectCurrency =
-      typeof data.initialBalance === "object" && data.initialBalance !== null
-        ? data.initialBalance.currency
-        : undefined;
-
-    if (!data.currency && !objectCurrency) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Currency is required either at root or within initialBalance",
-        path: ["currency"],
-      });
-    }
-
-    if (data.currency && objectCurrency && data.currency !== objectCurrency) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Root currency and initialBalance currency must match",
-        path: ["initialBalance", "currency"],
-      });
-    }
+    validateCurrencies(data, ctx);
   })
   .transform((data) => {
     let initialBalance: string | undefined;
