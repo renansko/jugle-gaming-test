@@ -34,6 +34,9 @@ export interface CreateWagerTransactionProps {
   status?: WagerTransactionStatus;
   failureCode?: string;
   observedBalance?: Money;
+  referenceAttemptCount?: number;
+  nextReferenceAttemptAt?: Date;
+  referenceLeaseUntil?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -56,6 +59,9 @@ export class WagerTransaction {
   public status: WagerTransactionStatus;
   public failureCode?: string;
   public observedBalance?: Money;
+  public referenceAttemptCount?: number;
+  public nextReferenceAttemptAt?: Date;
+  public referenceLeaseUntil?: Date;
   public createdAt?: Date;
   public updatedAt?: Date;
 
@@ -76,6 +82,9 @@ export class WagerTransaction {
     this.status = props.status ?? "PENDING";
     this.failureCode = props.failureCode;
     this.observedBalance = props.observedBalance;
+    this.referenceAttemptCount = props.referenceAttemptCount ?? 0;
+    this.nextReferenceAttemptAt = props.nextReferenceAttemptAt;
+    this.referenceLeaseUntil = props.referenceLeaseUntil;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? new Date();
   }
@@ -99,6 +108,49 @@ export class WagerTransaction {
     return new WagerTransaction(statusOrProps);
   }
 
+  public markProcessed(observedBalance: Money, now = new Date()): void {
+    this.observedBalance = observedBalance;
+    this.updatedAt = now;
+    this.transition("PROCESSED");
+  }
+
+  public markRejected(failureCode: string, observedBalance: Money, now = new Date()): void {
+    this.failureCode = failureCode;
+    this.observedBalance = observedBalance;
+    this.updatedAt = now;
+    this.transition("REJECTED");
+  }
+
+  public markFailed(failureCode: string, now = new Date()): void {
+    this.failureCode = failureCode;
+    this.updatedAt = now;
+    this.transition("FAILED");
+  }
+
+  public markPendingReference(nextAttemptAt?: Date, now = new Date()): void {
+    this.nextReferenceAttemptAt = nextAttemptAt;
+    this.updatedAt = now;
+    this.transition("PENDING_REFERENCE");
+  }
+
+  public linkReference(referenceTransactionId: string): void {
+    this.referenceTransactionId = referenceTransactionId;
+  }
+
+  public clearReferenceLease(): void {
+    this.referenceLeaseUntil = undefined;
+  }
+
+  public clearReferenceAttempt(): void {
+    this.nextReferenceAttemptAt = undefined;
+    this.referenceLeaseUntil = undefined;
+  }
+
+  public scheduleReferenceRetry(nextAttemptAt: Date): void {
+    this.referenceAttemptCount = (this.referenceAttemptCount ?? 0) + 1;
+    this.nextReferenceAttemptAt = nextAttemptAt;
+    this.referenceLeaseUntil = undefined;
+  }
 
   public pendingReference(): void {
     this.transition("PENDING_REFERENCE");

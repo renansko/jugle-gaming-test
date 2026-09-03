@@ -13,7 +13,7 @@ export class InboxMessage {
     public readonly consumerName: string,
     public readonly messageId: string,
     public readonly payloadHash: string,
-    public readonly processedAt: Date,
+    public processedAt: Date,
   ) {}
 
   public static create(props: CreateInboxMessageProps): InboxMessage {
@@ -24,6 +24,10 @@ export class InboxMessage {
       props.payloadHash,
       props.processedAt ?? new Date(),
     );
+  }
+
+  public recordProcessed(processedAt = new Date()): void {
+    this.processedAt = processedAt;
   }
 
   public hasSamePayload(hash: string): boolean {

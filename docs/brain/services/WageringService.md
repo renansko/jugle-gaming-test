@@ -23,7 +23,14 @@ Insere ou altera registros dentro de uma única transação. Eventos são apenas
 
 Veja [contratos](../functions/WageringService.md).
 
-## Código planejado
+## Arquitetura Hexagonal & Ports
 
-`src/application/wagering/process-wager-transaction.ts` e `src/application/wallet/create-wallet.ts`.
+Para isolar o domínio das entidades do MikroORM, o serviço interage através de portas de repositório e mappers bidirecionais:
+- `WalletRepositoryPort`, `WagerTransactionRepositoryPort`, `WalletLedgerRepositoryPort`, `InboxRepositoryPort`, `OutboxRepositoryPort`;
+- Mappers sincronizam os agregados de domínio (`WagerTransaction`, `Wallet`, `WalletLedgerEntry`, `InboxMessage`, `OutboxMessage`) antes do flush atômico.
+- Complexidade ciclomática de todos os métodos estritamente mantida <= 6.
+
+## Código
+
+`src/application/wagering/wagering.service.ts`, portas em `src/application/ports/` e mappers em `src/infrastructure/persistence/mappers/`.
 

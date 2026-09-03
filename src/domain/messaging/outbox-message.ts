@@ -5,6 +5,7 @@ export interface CreateOutboxMessageProps {
   attemptCount?: number;
   nextAttemptAt?: Date;
   leaseUntil?: Date;
+  leaseToken?: string;
   publishedAt?: Date;
   createdAt?: Date;
 }
@@ -18,6 +19,7 @@ export class OutboxMessage {
     public attemptCount: number,
     public nextAttemptAt: Date,
     public leaseUntil?: Date,
+    public leaseToken?: string,
     public publishedAt?: Date,
     public readonly createdAt: Date = new Date(),
   ) {}
@@ -31,6 +33,7 @@ export class OutboxMessage {
       props.attemptCount ?? 0,
       props.nextAttemptAt ?? now,
       props.leaseUntil,
+      props.leaseToken,
       props.publishedAt,
       now,
     );
@@ -40,14 +43,39 @@ export class OutboxMessage {
     return this.publishedAt !== undefined && this.publishedAt !== null;
   }
 
+  public isLeaseExpired(now = new Date()): boolean {
+    return Boolean(this.leaseUntil && this.leaseUntil < now);
+  }
+
+  public isEligible(now = new Date()): boolean {
+    if (this.isPublished()) {
+      return false;
+    }
+    if (this.nextAttemptAt > now) {
+      return false;
+    }
+    return !this.leaseUntil || this.isLeaseExpired(now);
+  }
+
+  public claim(leaseUntil: Date, leaseToken: string): void {
+    this.leaseUntil = leaseUntil;
+    this.leaseToken = leaseToken;
+  }
+
   public markPublished(publishedAt = new Date()): void {
     this.publishedAt = publishedAt;
     this.leaseUntil = undefined;
+    this.leaseToken = undefined;
   }
 
   public recordAttempt(nextAttemptAt: Date): void {
+    this.recordFailure(nextAttemptAt);
+  }
+
+  public recordFailure(nextAttemptAt: Date): void {
     this.attemptCount += 1;
     this.nextAttemptAt = nextAttemptAt;
     this.leaseUntil = undefined;
+    this.leaseToken = undefined;
   }
 }

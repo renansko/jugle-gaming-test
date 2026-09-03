@@ -1,14 +1,31 @@
-import { Inject, Injectable, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { LockMode } from "@mikro-orm/core";
 import { type EntityManager, MikroORM } from "@mikro-orm/postgresql";
 import { DomainError } from "../../domain/shared/domain-error";
 import { Money } from "../../domain/shared/money";
-import { Wallet } from "../../domain/wallet/wallet";
+import type { Wallet } from "../../domain/wallet/wallet";
+import {
+  WagerTransaction,
+  type WagerTransactionKind,
+} from "../../domain/wagering/wager-transaction";
+import { InboxMessage } from "../../domain/messaging/inbox-message";
+import { OutboxMessage } from "../../domain/messaging/outbox-message";
 import { WalletLedgerEntryEntity } from "../../infrastructure/persistence/entities/wallet-ledger-entry.entity";
 import { WagerTransactionEntity } from "../../infrastructure/persistence/entities/wager-transaction.entity";
 import { WalletEntity } from "../../infrastructure/persistence/entities/wallet.entity";
 import { OutboxMessageEntity } from "../../infrastructure/persistence/entities/outbox-message.entity";
 import { InboxMessageEntity } from "../../infrastructure/persistence/entities/inbox-message.entity";
+import {
+  wagerTransactionToDomain,
+  wagerTransactionToPersistence,
+} from "../../infrastructure/persistence/mappers/wager-transaction.mapper";
+import {
+  walletToDomain,
+  walletToPersistence,
+} from "../../infrastructure/persistence/mappers/wallet.mapper";
+import { walletLedgerEntryToPersistence } from "../../infrastructure/persistence/mappers/wallet-ledger-entry.mapper";
+import { inboxMessageToPersistence } from "../../infrastructure/persistence/mappers/inbox-message.mapper";
+import { outboxMessageToPersistence } from "../../infrastructure/persistence/mappers/outbox-message.mapper";
 import {
   WalletBalanceChanged,
   WagerTransactionPendingReference,
@@ -86,6 +103,8 @@ type ValidPendingTransaction = WagerTransactionEntity & {
 /** @wiki docs/brain/services/WageringService.md */
 @Injectable()
 export class WageringService {
+  private readonly logger = new Logger(WageringService.name);
+
   public constructor(
     @Inject(MikroORM)
     private readonly orm: MikroORM,
@@ -112,83 +131,18 @@ export class WageringService {
       amount: amount.amount,
     });
 
-
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        return await this.orm.em.transactional(async (entityManager) => {
-          const existingInbox = await this.checkInbox(
-            entityManager,
-            context.inbox,
-          );
-
-          const existingOutput = await this.checkExistingIdempotentTransaction(
+        return await this.orm.em.transactional((entityManager) =>
+          this.executeTransactionBlock(
             entityManager,
             input,
+            amount,
             payloadHash,
             context,
-            existingInbox,
             startedAt,
-          );
-
-          if (existingOutput) {
-            return existingOutput;
-          }
-
-          if (existingInbox) {
-            throw new DomainError(
-              "DEPENDENCY_UNAVAILABLE",
-              "Inbox exists without its financial transaction",
-            );
-          }
-
-          await this.hooks?.beforeLock?.(input);
-          const walletEntity = await this.lockWallet(
-            entityManager,
-            input.walletId,
-          );
-          await this.hooks?.afterLock?.(input);
-
-          const wallet = Wallet.rehydrate({
-            ...walletEntity,
-            balance: Money.create(walletEntity.balance, walletEntity.currency),
-          });
-
-          const transaction = this.createInitialTransaction(
-            entityManager,
-            input,
-            amount,
-            payloadHash,
-          );
-          entityManager.persist(transaction);
-          await entityManager.flush();
-
-          await this.hooks?.beforeApply?.(input);
-          await this.processWagerMovement(
-            entityManager,
-            transaction,
-            wallet,
-            amount,
-            input,
-          );
-
-          if (transaction.status === "PENDING_REFERENCE") {
-            transaction.nextReferenceAttemptAt = this.clock.now();
-          }
-
-          walletEntity.balance = wallet.balance.amount;
-          walletEntity.version = wallet.version;
-          walletEntity.updatedAt = wallet.updatedAt;
-          transaction.observedBalance = wallet.balance.amount;
-
-          this.stageEvents(entityManager, transaction, wallet, context);
-          if (context.inbox) {
-            this.stageInbox(entityManager, context.inbox);
-          }
-
-          await this.hooks?.beforeFlush?.(input);
-          await entityManager.flush();
-          return this.recordOutput(transaction, false, startedAt);
-        });
+          ),
+        );
       } catch (error) {
         const retryResult = await this.handleTransactionError(
           error,
@@ -207,6 +161,76 @@ export class WageringService {
       "DEPENDENCY_UNAVAILABLE",
       "Transaction contention exceeded retry limit",
     );
+  }
+
+  private async executeTransactionBlock(
+    entityManager: EntityManager,
+    input: ProcessWagerInput,
+    amount: Money,
+    payloadHash: string,
+    context: WageringContext,
+    startedAt: number,
+  ): Promise<ProcessWagerOutput> {
+    const existingInbox = await this.checkInbox(entityManager, context.inbox);
+    const existingOutput = await this.checkExistingIdempotentTransaction(
+      entityManager,
+      input,
+      payloadHash,
+      context,
+      existingInbox,
+      startedAt,
+    );
+    if (existingOutput) {
+      return existingOutput;
+    }
+
+    if (existingInbox) {
+      throw new DomainError(
+        "DEPENDENCY_UNAVAILABLE",
+        "Inbox exists without its financial transaction",
+      );
+    }
+
+    await this.hooks?.beforeLock?.(input);
+    const walletEntity = await this.lockWallet(entityManager, input.walletId);
+    await this.hooks?.afterLock?.(input);
+
+    const wallet = walletToDomain(walletEntity);
+    const domainTransaction = this.createInitialTransaction(
+      input,
+      amount,
+      payloadHash,
+    );
+
+    const transactionEntity = entityManager.create(
+      WagerTransactionEntity,
+      wagerTransactionToPersistence(domainTransaction),
+    );
+    entityManager.persist(transactionEntity);
+    await entityManager.flush();
+
+    await this.hooks?.beforeApply?.(input);
+    await this.processWagerMovement(
+      entityManager,
+      domainTransaction,
+      wallet,
+      amount,
+      input,
+    );
+
+    walletToPersistence(wallet, walletEntity);
+    wagerTransactionToPersistence(domainTransaction, transactionEntity);
+
+    this.stageEvents(entityManager, domainTransaction, wallet, context);
+    if (context.inbox) {
+      this.stageInbox(entityManager, context.inbox);
+    }
+
+    await this.hooks?.beforeFlush?.(input);
+    await entityManager.flush();
+
+    this.logWagerEvent("wager_completed", domainTransaction, context);
+    return this.recordOutput(domainTransaction, false, startedAt);
   }
 
   private async checkInbox(
@@ -240,7 +264,7 @@ export class WageringService {
     existingInbox: InboxMessageEntity | null,
     startedAt: number,
   ): Promise<ProcessWagerOutput | null> {
-    const existingTransaction =
+    const existingEntity =
       (await entityManager.findOne(WagerTransactionEntity, {
         idempotencyKey: input.idempotencyKey,
       })) ??
@@ -249,11 +273,11 @@ export class WageringService {
         externalTransactionId: input.externalTransactionId,
       }));
 
-    if (!existingTransaction) {
+    if (!existingEntity) {
       return null;
     }
 
-    if (existingTransaction.payloadHash !== payloadHash) {
+    if (existingEntity.payloadHash !== payloadHash) {
       throw new DomainError(
         "IDEMPOTENCY_CONFLICT",
         "Idempotency key was already used for another payload",
@@ -265,7 +289,10 @@ export class WageringService {
     }
 
     await entityManager.flush();
-    return this.recordOutput(existingTransaction, true, startedAt);
+
+    const domainExisting = wagerTransactionToDomain(existingEntity);
+    this.logWagerEvent("wager_replay", domainExisting, context);
+    return this.recordOutput(domainExisting, true, startedAt);
   }
 
   private async lockWallet(
@@ -291,13 +318,12 @@ export class WageringService {
   }
 
   private createInitialTransaction(
-    entityManager: EntityManager,
     input: ProcessWagerInput,
     amount: Money,
     payloadHash: string,
-  ): WagerTransactionEntity {
+  ): WagerTransaction {
     const now = this.clock.now();
-    return entityManager.create(WagerTransactionEntity, {
+    return WagerTransaction.create({
       id: this.idGenerator.generate(),
       idempotencyKey: input.idempotencyKey,
       providerId: input.providerId,
@@ -305,14 +331,12 @@ export class WageringService {
       payloadHash,
       walletId: input.walletId,
       playerId: input.playerId,
-      currency: input.currency,
-      amount: amount.amount,
+      money: amount,
       kind: input.kind,
       roundId: input.roundId,
       gameId: input.gameId,
       referenceExternalTransactionId: input.referenceExternalTransactionId,
       status: "PENDING",
-
       createdAt: now,
       updatedAt: now,
     });
@@ -320,18 +344,26 @@ export class WageringService {
 
   private async processWagerMovement(
     entityManager: EntityManager,
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     wallet: Wallet,
     amount: Money,
     input: ProcessWagerInput,
   ): Promise<void> {
     if (wallet.playerId !== input.playerId) {
-      this.reject(transaction, wallet, "REFERENCE_SCOPE_MISMATCH");
+      transaction.markRejected(
+        "REFERENCE_SCOPE_MISMATCH",
+        wallet.balance,
+        this.clock.now(),
+      );
       return;
     }
 
     if (wallet.currency !== input.currency) {
-      this.reject(transaction, wallet, "CURRENCY_MISMATCH");
+      transaction.markRejected(
+        "CURRENCY_MISMATCH",
+        wallet.balance,
+        this.clock.now(),
+      );
       return;
     }
 
@@ -356,12 +388,52 @@ export class WageringService {
       return this.handleIdempotencyConflict(input, payloadHash, startedAt);
     }
 
-    if (this.isRetryableTransactionError(error) && attempt < 2) {
+    if (this.isRetryableTransactionError(error)) {
+      return this.handleRetryableContention(error, attempt, input);
+    }
+
+    throw error;
+  }
+
+  private async handleRetryableContention(
+    error: unknown,
+    attempt: number,
+    input: ProcessWagerInput,
+  ): Promise<null> {
+    const isDeadlock = this.isDeadlockError(error);
+    this.metrics.increment("lock_retries_total", {
+      reason: isDeadlock ? "deadlock" : "serialization_failure",
+    });
+    if (isDeadlock) {
+      this.metrics.increment("deadlocks_total");
+    }
+    this.metrics.increment("lock_contention_total");
+
+    this.logger.warn(
+      JSON.stringify({
+        event: "lock_retry",
+        attempt,
+        reason: isDeadlock ? "deadlock" : "serialization_failure",
+        walletId: input.walletId,
+        providerId: input.providerId,
+      }),
+    );
+
+    if (attempt < 2) {
       await this.retryDelay(attempt);
       return null;
     }
 
-    throw error;
+    return null;
+  }
+
+  private isDeadlockError(error: unknown): boolean {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "40P01"
+    );
   }
 
   private async handleIdempotencyConflict(
@@ -369,17 +441,18 @@ export class WageringService {
     payloadHash: string,
     startedAt: number,
   ): Promise<ProcessWagerOutput | null> {
-    const saved = await this.findPersistedTransaction(input);
-    if (!saved) {
+    const savedEntity = await this.findPersistedTransaction(input);
+    if (!savedEntity) {
       return null;
     }
-    if (saved.payloadHash !== payloadHash) {
+    if (savedEntity.payloadHash !== payloadHash) {
       throw new DomainError(
         "IDEMPOTENCY_CONFLICT",
         "Idempotency key was already used for another payload",
       );
     }
-    return this.recordOutput(saved, true, startedAt);
+    const savedDomain = wagerTransactionToDomain(savedEntity);
+    return this.recordOutput(savedDomain, true, startedAt);
   }
 
   public async get(id: string): Promise<Record<string, unknown> | null> {
@@ -428,26 +501,24 @@ export class WageringService {
     };
   }
 
-
-  /** Reapplies a claimed pending reversal. The worker owns scheduling and expiry. */
   public async resolvePendingReference(
     id: string,
     context: WageringContext = {},
   ): Promise<"resolved" | "still_pending" | "ignored"> {
     return this.orm.em.transactional(async (entityManager) => {
-      const transaction = await entityManager.findOne(
+      const transactionEntity = await entityManager.findOne(
         WagerTransactionEntity,
         { id },
         { lockMode: LockMode.PESSIMISTIC_WRITE },
       );
 
-      if (!this.isValidPendingTransaction(transaction)) {
+      if (!this.isValidPendingTransaction(transactionEntity)) {
         return "ignored";
       }
 
       const walletEntity = await entityManager.findOne(
         WalletEntity,
-        { id: transaction.walletId },
+        { id: transactionEntity.walletId },
         { lockMode: LockMode.PESSIMISTIC_WRITE },
       );
 
@@ -455,51 +526,47 @@ export class WageringService {
         return "ignored";
       }
 
-      const wallet = Wallet.rehydrate({
-        ...walletEntity,
-        balance: Money.create(walletEntity.balance, walletEntity.currency),
-      });
+      const domainTransaction = wagerTransactionToDomain(transactionEntity);
+      const domainWallet = walletToDomain(walletEntity);
 
       await this.apply(
         entityManager,
-        transaction,
-        wallet,
-        Money.create(transaction.amount, transaction.currency),
+        domainTransaction,
+        domainWallet,
+        domainTransaction.money ??
+          Money.create(transactionEntity.amount, transactionEntity.currency),
         {
-          idempotencyKey: transaction.idempotencyKey,
-          providerId: transaction.providerId,
-          externalTransactionId: transaction.externalTransactionId,
-          walletId: transaction.walletId,
-          playerId: transaction.playerId,
-          currency: transaction.currency,
-          amount: transaction.amount,
-          kind: transaction.kind as WagerKind,
-          roundId: transaction.roundId,
-          gameId: transaction.gameId,
+          idempotencyKey: transactionEntity.idempotencyKey,
+          providerId: transactionEntity.providerId,
+          externalTransactionId: transactionEntity.externalTransactionId,
+          walletId: transactionEntity.walletId,
+          playerId: transactionEntity.playerId,
+          currency: transactionEntity.currency,
+          amount: transactionEntity.amount,
+          kind: transactionEntity.kind as WagerKind,
+          roundId: transactionEntity.roundId,
+          gameId: transactionEntity.gameId,
           referenceExternalTransactionId:
-            transaction.referenceExternalTransactionId,
+            transactionEntity.referenceExternalTransactionId,
         },
       );
 
+      walletToPersistence(domainWallet, walletEntity);
+      wagerTransactionToPersistence(domainTransaction, transactionEntity);
 
-      walletEntity.balance = wallet.balance.amount;
-      walletEntity.version = wallet.version;
-      walletEntity.updatedAt = wallet.updatedAt;
-
-      transaction.observedBalance = wallet.balance.amount;
-      transaction.updatedAt = new Date();
-      transaction.referenceLeaseUntil = undefined;
-
-      if (transaction.status === "PENDING_REFERENCE") {
-        transaction.referenceLeaseUntil = undefined;
+      if (domainTransaction.status === "PENDING_REFERENCE") {
+        domainTransaction.clearReferenceLease();
+        wagerTransactionToPersistence(domainTransaction, transactionEntity);
         await entityManager.flush();
         return "still_pending";
       }
 
-      transaction.nextReferenceAttemptAt = undefined;
-      this.stageEvents(entityManager, transaction, wallet, context);
+      domainTransaction.clearReferenceAttempt();
+      wagerTransactionToPersistence(domainTransaction, transactionEntity);
+      this.stageEvents(entityManager, domainTransaction, domainWallet, context);
       await entityManager.flush();
 
+      this.logWagerEvent("wager_resolved", domainTransaction, context);
       return "resolved";
     });
   }
@@ -509,43 +576,47 @@ export class WageringService {
     context: WageringContext = {},
   ): Promise<boolean> {
     return this.orm.em.transactional(async (entityManager) => {
-      const transaction = await entityManager.findOne(
+      const transactionEntity = await entityManager.findOne(
         WagerTransactionEntity,
         { id },
         { lockMode: LockMode.PESSIMISTIC_WRITE },
       );
 
-      if (!transaction || transaction.status !== "PENDING_REFERENCE") {
+      if (
+        !transactionEntity ||
+        transactionEntity.status !== "PENDING_REFERENCE"
+      ) {
         return false;
       }
 
-      const wallet = transaction.walletId
+      const walletEntity = transactionEntity.walletId
         ? await entityManager.findOne(WalletEntity, {
-            id: transaction.walletId,
+            id: transactionEntity.walletId,
           })
         : null;
 
-      if (!wallet) {
+      if (!walletEntity) {
         return false;
       }
 
-      const domainWallet = Wallet.rehydrate({
-        ...wallet,
-        balance: Money.create(wallet.balance, wallet.currency),
-      });
+      const domainTransaction = wagerTransactionToDomain(transactionEntity);
+      const domainWallet = walletToDomain(walletEntity);
 
-      this.reject(transaction, domainWallet, "REFERENCE_NOT_FOUND");
-      transaction.referenceLeaseUntil = undefined;
-      transaction.nextReferenceAttemptAt = undefined;
-      transaction.updatedAt = new Date();
+      domainTransaction.markRejected(
+        "REFERENCE_NOT_FOUND",
+        domainWallet.balance,
+        this.clock.now(),
+      );
+      domainTransaction.clearReferenceAttempt();
 
-      this.stageEvents(entityManager, transaction, domainWallet, context);
+      wagerTransactionToPersistence(domainTransaction, transactionEntity);
+      this.stageEvents(entityManager, domainTransaction, domainWallet, context);
       await entityManager.flush();
 
+      this.logWagerEvent("wager_expired", domainTransaction, context);
       return true;
     });
   }
-
 
   private hasRequiredTransactionFields(
     transaction: WagerTransactionEntity,
@@ -587,14 +658,14 @@ export class WageringService {
 
   private handleInsufficientFunds(
     error: unknown,
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     wallet: Wallet,
     kind: string,
   ): void {
     if (error instanceof DomainError && error.code === "INSUFFICIENT_FUNDS") {
       const code =
         kind === "BET" ? "INSUFFICIENT_FUNDS" : "REVERSAL_WOULD_NEGATIVE";
-      this.reject(transaction, wallet, code);
+      transaction.markRejected(code, wallet.balance, this.clock.now());
       return;
     }
     throw error;
@@ -612,103 +683,152 @@ export class WageringService {
       ? wallet.debit(amount, transactionId, entryId)
       : wallet.credit(amount, transactionId, entryId);
 
-    const ledgerEntity = entityManager.create(WalletLedgerEntryEntity, {
-      id: entry.id,
-      walletId: entry.walletId,
-      transactionId: entry.transactionId,
-      direction: entry.direction,
-      amount: entry.money.amount,
-      currency: entry.money.currency,
-      balanceBefore: entry.balanceBefore.amount,
-      balanceAfter: entry.balanceAfter.amount,
-      createdAt: entry.createdAt,
-    });
+    const ledgerEntity = entityManager.create(
+      WalletLedgerEntryEntity,
+      walletLedgerEntryToPersistence(entry),
+    );
 
     entityManager.persist(ledgerEntity);
   }
 
   private async apply(
     entityManager: EntityManager,
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     wallet: Wallet,
     amount: Money,
     input: ProcessWagerInput,
   ): Promise<void> {
     if (input.kind === "LOSS") {
-      transaction.status = "PROCESSED";
+      transaction.markProcessed(wallet.balance, this.clock.now());
       return;
     }
 
-    const hasRef = Boolean(input.referenceExternalTransactionId);
-    let reference: WagerTransactionEntity | null = null;
-    if (this.shouldResolveReference(input.kind, hasRef)) {
-      reference = await this.resolveAndValidateReference(
-        entityManager,
-        transaction,
-        wallet,
-        amount,
-        input,
-      );
-
-      if (!reference || transaction.status === "REJECTED") {
-        return;
-      }
+    const reference = await this.prepareReference(
+      entityManager,
+      transaction,
+      wallet,
+      amount,
+      input,
+    );
+    if (!reference && this.shouldResolveReference(input.kind, Boolean(input.referenceExternalTransactionId))) {
+      return;
     }
 
+    this.executeWalletMovement(
+      entityManager,
+      transaction,
+      wallet,
+      amount,
+      input.kind,
+      reference ? reference.kind : undefined,
+    );
+  }
+
+  private async prepareReference(
+    entityManager: EntityManager,
+    transaction: WagerTransaction,
+    wallet: Wallet,
+    amount: Money,
+    input: ProcessWagerInput,
+  ): Promise<WagerTransaction | null> {
+    const hasRef = Boolean(input.referenceExternalTransactionId);
+    if (!this.shouldResolveReference(input.kind, hasRef)) {
+      return null;
+    }
+    return this.resolveAndValidateReference(
+      entityManager,
+      transaction,
+      wallet,
+      amount,
+      input,
+    );
+  }
+
+  private executeWalletMovement(
+    entityManager: EntityManager,
+    transaction: WagerTransaction,
+    wallet: Wallet,
+    amount: Money,
+    kind: string,
+    referenceKind?: string,
+  ): void {
     try {
-      const isDebit = this.isDebitOperation(input.kind, reference?.kind);
+      const isDebit = this.isDebitOperation(kind, referenceKind);
+      const txId = transaction.id ? transaction.id : "";
       this.mutateWalletBalance(
         entityManager,
         wallet,
-        transaction.id,
+        txId,
         amount,
         isDebit,
       );
-      transaction.status = "PROCESSED";
+      transaction.markProcessed(wallet.balance, this.clock.now());
     } catch (error) {
-      this.handleInsufficientFunds(error, transaction, wallet, input.kind);
+      this.handleInsufficientFunds(error, transaction, wallet, kind);
     }
   }
 
   private async resolveAndValidateReference(
     entityManager: EntityManager,
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     wallet: Wallet,
     amount: Money,
     input: ProcessWagerInput,
-  ): Promise<WagerTransactionEntity | null> {
-    const reference = await this.findReferenceTransaction(entityManager, input);
-
-    if (!reference) {
-      transaction.status = "PENDING_REFERENCE";
-      return null;
-    }
-
-    transaction.referenceTransactionId = reference.id;
-
-    const isValid = this.validateReferenceRules(
-      transaction,
-      wallet,
-      reference,
-      amount,
+  ): Promise<WagerTransaction | null> {
+    const referenceEntity = await this.findReferenceTransaction(
+      entityManager,
       input,
     );
-    if (!isValid) {
+    if (!referenceEntity) {
+      transaction.markPendingReference(this.clock.now(), this.clock.now());
       return null;
     }
 
-    const isDuplicate = await this.isAlreadyReversed(
+    const reference = wagerTransactionToDomain(referenceEntity);
+    const refId = reference.id ? reference.id : "";
+    transaction.linkReference(refId);
+
+    if (!this.validateReferenceRules(transaction, wallet, reference, amount, input)) {
+      return null;
+    }
+
+    const isDuplicate = await this.checkDuplicateReversal(
       entityManager,
-      reference.id,
+      transaction,
+      wallet,
+      refId,
       input.kind,
-      transaction.id,
     );
     if (isDuplicate) {
-      this.reject(transaction, wallet, "REFERENCE_ALREADY_REVERSED");
       return null;
     }
 
     return reference;
+  }
+
+  private async checkDuplicateReversal(
+    entityManager: EntityManager,
+    transaction: WagerTransaction,
+    wallet: Wallet,
+    referenceId: string,
+    kind: WagerKind,
+  ): Promise<boolean> {
+    const txId = transaction.id ? transaction.id : "";
+    const isDuplicate = await this.isAlreadyReversed(
+      entityManager,
+      referenceId,
+      kind,
+      txId,
+    );
+    if (isDuplicate) {
+      transaction.markRejected(
+        "REFERENCE_ALREADY_REVERSED",
+        wallet.balance,
+        this.clock.now(),
+      );
+      return true;
+    }
+    return false;
   }
 
   private async findReferenceTransaction(
@@ -734,29 +854,47 @@ export class WageringService {
   }
 
   private validateReferenceRules(
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     wallet: Wallet,
-    reference: WagerTransactionEntity,
+    reference: WagerTransaction,
     amount: Money,
     input: ProcessWagerInput,
   ): boolean {
     if (reference.status !== "PROCESSED") {
-      this.reject(transaction, wallet, "REFERENCE_NOT_PROCESSED");
+      transaction.markRejected(
+        "REFERENCE_NOT_PROCESSED",
+        wallet.balance,
+        this.clock.now(),
+      );
       return false;
     }
 
     if (!this.matchesScope(reference, input)) {
-      this.reject(transaction, wallet, "REFERENCE_SCOPE_MISMATCH");
+      transaction.markRejected(
+        "REFERENCE_SCOPE_MISMATCH",
+        wallet.balance,
+        this.clock.now(),
+      );
       return false;
     }
 
-    if (this.isAmountMismatch(input.kind, reference.amount, amount.amount)) {
-      this.reject(transaction, wallet, "REFERENCE_AMOUNT_MISMATCH");
+    if (
+      this.isAmountMismatch(input.kind, reference.money?.amount, amount.amount)
+    ) {
+      transaction.markRejected(
+        "REFERENCE_AMOUNT_MISMATCH",
+        wallet.balance,
+        this.clock.now(),
+      );
       return false;
     }
 
-    if (this.isInvalidReferenceKind(input.kind, reference.kind)) {
-      this.reject(transaction, wallet, "INVALID_REFERENCE_KIND");
+    if (this.isInvalidReferenceKind(input.kind, reference.kind ?? "")) {
+      transaction.markRejected(
+        "INVALID_REFERENCE_KIND",
+        wallet.balance,
+        this.clock.now(),
+      );
       return false;
     }
 
@@ -784,14 +922,14 @@ export class WageringService {
   }
 
   private matchesScope(
-    reference: WagerTransactionEntity,
+    reference: WagerTransaction,
     input: ProcessWagerInput,
   ): boolean {
     const providerMatches =
       !reference.providerId || reference.providerId === input.providerId;
     const playerMatches = reference.playerId === input.playerId;
     const walletMatches = reference.walletId === input.walletId;
-    const currencyMatches = reference.currency === input.currency;
+    const currencyMatches = reference.money?.currency === input.currency;
     const roundMatches = reference.roundId === input.roundId;
     return (
       providerMatches &&
@@ -826,36 +964,31 @@ export class WageringService {
     return false;
   }
 
-  private reject(
-    transaction: WagerTransactionEntity,
-    wallet: Wallet,
-    failureCode: string,
-  ): void {
-    transaction.status = "REJECTED";
-    transaction.failureCode = failureCode;
-    transaction.observedBalance = wallet.balance.amount;
-  }
-
   private stageInbox(entityManager: EntityManager, inbox: InboxContext): void {
-    const inboxEntity = entityManager.create(InboxMessageEntity, {
+    const inboxMessage = InboxMessage.create({
       id: this.idGenerator.generate(),
       consumerName: inbox.consumerName,
       messageId: inbox.messageId,
       payloadHash: inbox.payloadHash,
       processedAt: this.clock.now(),
     });
+    const inboxEntity = entityManager.create(
+      InboxMessageEntity,
+      inboxMessageToPersistence(inboxMessage),
+    );
     entityManager.persist(inboxEntity);
   }
 
   private stageEvents(
     entityManager: EntityManager,
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     wallet: Wallet,
     context: WageringContext,
   ): void {
-    const correlationId = context.correlationId ?? transaction.id;
+    const txId = transaction.id ?? "";
+    const correlationId = context.correlationId ?? txId;
     const eventData = {
-      transactionId: transaction.id,
+      transactionId: txId,
       status: transaction.status,
       failureCode: transaction.failureCode,
       balance: {
@@ -864,93 +997,129 @@ export class WageringService {
       },
     };
 
-    let event:
-      | WagerTransactionRejected
-      | WagerTransactionPendingReference
-      | WagerTransactionProcessed;
-
-    if (transaction.status === "REJECTED") {
-      event = new WagerTransactionRejected(
-        transaction.id,
-        correlationId,
-        eventData,
-      );
-    } else if (transaction.status === "PENDING_REFERENCE") {
-      event = new WagerTransactionPendingReference(
-        transaction.id,
-        correlationId,
-        eventData,
-      );
-    } else {
-      event = new WagerTransactionProcessed(
-        transaction.id,
-        correlationId,
-        eventData,
-      );
-    }
-
+    const event = this.buildWagerEvent(transaction, correlationId, eventData);
     event.envelope.causationId = context.causationId;
 
-    const outboxMessage = entityManager.create(OutboxMessageEntity, {
+    const outboxMessage = OutboxMessage.create({
       id: event.envelope.eventId,
       eventType: `${event.envelope.eventType}.v1`,
       payload: event.envelope,
       attemptCount: 0,
-      nextAttemptAt: new Date(),
-      createdAt: new Date(),
+      nextAttemptAt: this.clock.now(),
+      createdAt: this.clock.now(),
     });
-    entityManager.persist(outboxMessage);
+    const outboxEntity = entityManager.create(
+      OutboxMessageEntity,
+      outboxMessageToPersistence(outboxMessage),
+    );
+    entityManager.persist(outboxEntity);
 
-    if (transaction.status === "PROCESSED" && transaction.kind !== "LOSS") {
-      const balanceEvent = new WalletBalanceChanged(wallet.id, correlationId, {
-        walletId: wallet.id,
-        balance: {
-          amount: wallet.balance.amount,
-          currency: wallet.currency,
-        },
-        transactionId: transaction.id,
-      });
+    this.stageBalanceChangedEvent(
+      entityManager,
+      transaction,
+      wallet,
+      correlationId,
+      context.causationId,
+    );
+  }
 
-      balanceEvent.envelope.causationId = context.causationId;
-
-      const balanceOutboxMessage = entityManager.create(OutboxMessageEntity, {
-        id: balanceEvent.envelope.eventId,
-        eventType: "WalletBalanceChanged.v1",
-        payload: balanceEvent.envelope,
-        attemptCount: 0,
-        nextAttemptAt: new Date(),
-        createdAt: new Date(),
-      });
-      entityManager.persist(balanceOutboxMessage);
+  private buildWagerEvent(
+    transaction: WagerTransaction,
+    correlationId: string,
+    eventData: {
+      transactionId: string;
+      status: string;
+      failureCode?: string;
+      balance: { amount: string; currency: string };
+    },
+  ):
+    | WagerTransactionRejected
+    | WagerTransactionPendingReference
+    | WagerTransactionProcessed {
+    const txId = transaction.id ?? "";
+    if (transaction.status === "REJECTED") {
+      return new WagerTransactionRejected(
+        txId,
+        correlationId,
+        eventData,
+      );
     }
+    if (transaction.status === "PENDING_REFERENCE") {
+      return new WagerTransactionPendingReference(
+        txId,
+        correlationId,
+        eventData,
+      );
+    }
+    return new WagerTransactionProcessed(
+      txId,
+      correlationId,
+      eventData,
+    );
+  }
+
+  private stageBalanceChangedEvent(
+    entityManager: EntityManager,
+    transaction: WagerTransaction,
+    wallet: Wallet,
+    correlationId: string,
+    causationId?: string,
+  ): void {
+    if (transaction.status !== "PROCESSED" || transaction.kind === "LOSS") {
+      return;
+    }
+
+    const balanceEvent = new WalletBalanceChanged(wallet.id, correlationId, {
+      walletId: wallet.id,
+      balance: {
+        amount: wallet.balance.amount,
+        currency: wallet.currency,
+      },
+      transactionId: transaction.id ?? "",
+    });
+
+    balanceEvent.envelope.causationId = causationId;
+
+    const balanceOutboxMessage = OutboxMessage.create({
+      id: balanceEvent.envelope.eventId,
+      eventType: "WalletBalanceChanged.v1",
+      payload: balanceEvent.envelope,
+      attemptCount: 0,
+      nextAttemptAt: this.clock.now(),
+      createdAt: this.clock.now(),
+    });
+    const balanceEntity = entityManager.create(
+      OutboxMessageEntity,
+      outboxMessageToPersistence(balanceOutboxMessage),
+    );
+    entityManager.persist(balanceEntity);
   }
 
   private output(
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     idempotentReplay: boolean,
   ): ProcessWagerOutput {
     return {
-      id: transaction.id,
-      transactionId: transaction.id,
+      id: transaction.id ?? "",
+      transactionId: transaction.id ?? "",
       status: transaction.status,
       failureCode: transaction.failureCode,
       gameId: transaction.gameId,
       balance: {
-        amount: transaction.observedBalance ?? "0.00",
-        currency: transaction.currency ?? "XXX",
+        amount: transaction.observedBalance?.amount ?? "0.00",
+        currency: transaction.money?.currency ?? "XXX",
       },
       idempotentReplay,
     };
   }
 
-
   private recordOutput(
-    transaction: WagerTransactionEntity,
+    transaction: WagerTransaction,
     isReplay: boolean,
     startedAt: number,
   ): ProcessWagerOutput {
     this.metrics.increment("wager_transactions_total", {
-      kind: transaction.kind,
+      kind: transaction.kind ?? "BET",
       status: transaction.status,
       failureCode: transaction.failureCode ?? "none",
     });
@@ -968,6 +1137,27 @@ export class WageringService {
     );
 
     return this.output(transaction, isReplay);
+  }
+
+  private logWagerEvent(
+    event: string,
+    transaction: WagerTransaction,
+    context: WageringContext,
+    extra: Record<string, unknown> = {},
+  ): void {
+    this.logger.log(
+      JSON.stringify({
+        event,
+        correlationId: context.correlationId ?? transaction.id,
+        messageId: context.inbox?.messageId,
+        transactionId: transaction.id,
+        walletId: transaction.walletId,
+        providerId: transaction.providerId,
+        status: transaction.status,
+        failureCode: transaction.failureCode,
+        ...extra,
+      }),
+    );
   }
 
   private async findPersistedTransaction(

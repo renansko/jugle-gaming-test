@@ -44,10 +44,22 @@ Os estados da transação são: `PENDING`, `PENDING_REFERENCE`, `PROCESSED`, `RE
 
 Persistir o saldo observado após o processamento para que o replay não retorne o saldo atual da wallet.
 
-## Persistência operacional
+## Encapsulamento de Domínio e Métodos de Transição
 
-Além da identidade, a transação guarda wallet, jogador, moeda, valor, rodada e referência. Esses campos tornam a validação de escopo independente do payload original e preservam uma resposta estável para consultas e replays.
+O agregado `WagerTransaction` encapsula todas as transições de estado via métodos de domínio:
+- `markProcessed(observedBalance, now)`: avança `PENDING` ou `PENDING_REFERENCE` para `PROCESSED`;
+- `markRejected(failureCode, observedBalance, now)`: transiciona para `REJECTED` gravando o código estável;
+- `markPendingReference(nextAttemptAt, now)`: transiciona para `PENDING_REFERENCE` agendando busca;
+- `linkReference(referenceTransactionId)`: associa id da transação referenciada;
+- `clearReferenceLease()`: limpa token e expiração do lease de reprocessamento;
+- `scheduleReferenceRetry(nextAttemptAt, leaseUntil)`: incrementa tentativas e define próxima janela.
 
-## Código planejado
+Qualquer transição direta a partir de estados terminais é bloqueada com `DomainError`.
 
-`src/domain/wagering/wager-transaction.ts` e política de aplicação em `src/domain/wagering/wager-policy.ts`.
+## Mapeamento de Persistência
+
+A camada de persistência MikroORM é desacoplada através de `wagerTransactionToDomain` e `wagerTransactionToPersistence` (`src/infrastructure/persistence/mappers/wager-transaction.mapper.ts`). O serviço de aplicação nunca muta diretamente propriedades de entidade ORM.
+
+## Código
+
+`src/domain/wagering/wager-transaction.ts` e mappers em `src/infrastructure/persistence/mappers/`.

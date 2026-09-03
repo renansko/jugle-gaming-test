@@ -16,12 +16,15 @@ Instrumentação baseada no OpenTelemetry API (`@opentelemetry/api`) através de
 - `wager_processing_latency_ms`: histograma da latência financeira com buckets,
   soma e contagem; percentis nunca são inferidos do último valor;
 - `outbox_pending` e `outbox_lag_ms`: medidores da fila de eventos da outbox;
+- `lock_retries_total`, `deadlocks_total`, `lock_contention_total`: rastreamento de contenção e deadlocks;
+- `shutdown_outcomes_total`: resultados de encerramento (`clean_drain`, `timeout_release`, `failure`);
+- `sqs_retries_total` e `sqs_dlq_total`: falhas temporárias e roteamento para DLQ;
 - `consumer_drain_total`: total de shutdowns com drain de mensagens em voo concluído com sucesso;
 - `consumer_visibility_released_total`: mensagens devolvidas com visibilidade 0 durante timeout de encerramento;
 - `sqs_redeliveries_total`: total de mensagens recebidas em redelivery (`receiveCount > 1` ou replay);
 - `shutdown_failures_total`: encerramentos que excederam o prazo (`SHUTDOWN_GRACE_PERIOD_MS`).
 
-Eventos de log padronizados distinguem `consumer_drain_completed`, `consumer_visibility_released`, `sqs_message_redelivered` e `consumer_shutdown_timeout`.
+Eventos de log padronizados distinguem `wager_completed`, `wager_replay`, `wager_resolved`, `wager_expired`, `lock_retry`, `shutdown_started`, `shutdown_completed`, `consumer_drain_completed`, `consumer_visibility_released` e `consumer_shutdown_timeout`.
 
 Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de conteúdo (formato texto padrão Prometheus e JSON).
 

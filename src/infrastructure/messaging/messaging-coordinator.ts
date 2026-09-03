@@ -47,10 +47,35 @@ export class MessagingCoordinator
 
   public async beforeApplicationShutdown(): Promise<void> {
     this.stopping = true;
-    await this.consumer.shutdown(this.config.shutdownGracePeriodMs);
+    try {
+      this.logger.log(
+        JSON.stringify({
+          event: "shutdown_started",
+          workerTasksCount: this.workerTasks.length,
+        }),
+      );
+      await this.consumer.shutdown(this.config.shutdownGracePeriodMs);
 
-    await Promise.allSettled(this.workerTasks);
-    this.publisher.stop();
+      await Promise.allSettled(this.workerTasks);
+      this.publisher.stop();
+      this.metrics.increment("shutdown_outcomes_total", { status: "success" });
+      this.logger.log(
+        JSON.stringify({
+          event: "shutdown_completed",
+          status: "success",
+        }),
+      );
+    } catch (error) {
+      this.metrics.increment("shutdown_outcomes_total", { status: "error" });
+      this.metrics.increment("shutdown_failures_total");
+      this.logger.error(
+        JSON.stringify({
+          event: "shutdown_completed",
+          status: "error",
+          error: error instanceof Error ? error.message : "unknown",
+        }),
+      );
+    }
   }
 
   public isRunning(): boolean {

@@ -103,7 +103,17 @@ flowchart TD
 | Inbox e Transactional Outbox | Recuperar duplicação e dual write | Mais tabelas, workers e estados operacionais |
 | Saldo materializado + ledger | Leitura rápida com histórico auditável | Duas representações precisam reconciliar |
 | `PENDING_REFERENCE` | Aceitar dependência fora de ordem sem travar a fila | Consistência eventual e worker adicional |
+| Encapsulamento de domínio + mappers | Proteger invariantes das entidades sem acoplamento a ORM | Camada explícita de tradução domain/persistence |
+| Gate AST de complexidade ciclomática <= 6 | Legibilidade e manutenibilidade contínua via análise estática | Refatorações ativas em funções utilitárias menores |
 | Autenticação adiada | Não retirar tempo dos critérios eliminatórios | A versão atual não está protegida |
+
+### Encapsulamento e Isolamento de Domínio
+
+O núcleo de negócio é protegido por fronteiras estritas de domínio:
+- **Agregados e Entidades Ricas**: `WagerTransaction`, `Wallet`, `InboxMessage` e `OutboxMessage` expõem apenas métodos de transição (`markProcessed`, `markRejected`, `markPendingReference`, `linkReference`, `claim`, `markPublished`, `recordFailure`), blindando estados terminais e impedindo transições ilegais.
+- **Mapeamento Bidirecional**: Camada de mappers dedicada (`src/infrastructure/persistence/mappers/`) isola o domínio das entidades do MikroORM (`*Entity`), convertendo modelos ricos em registros de banco e vice-versa sem vazamento de anotações ou dependências de framework.
+- **Portas de Aplicação**: Interfaces de repositório (`WalletRepositoryPort`, `WagerTransactionRepositoryPort`, etc.) definem contratos independentes de banco.
+- **Verificação Estática de Complexidade**: O script `scripts/verify-cyclomatic-complexity.ts` avalia a árvore sintática (AST via TypeScript Compiler API) de todos os arquivos em `src/`, garantindo que nenhuma função ultrapasse a complexidade ciclomática de 6.
 
 Não usei SAGA porque wallet, transação, ledger, Inbox e Outbox estão no mesmo
 PostgreSQL e cabem em uma transação ACID. `REFUND` e `ROLLBACK` são operações do
