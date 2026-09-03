@@ -111,4 +111,86 @@ concurrency("three-instance concurrency", () => {
       checkedEntries: 2,
     });
   });
+
+  test("two simultaneous reversals of same type produce exactly one financial reversal", async () => {
+    const { wallet: target, playerId } = await wallet("100.00");
+    const betId = `bet-orig-${randomUUID()}`;
+    const roundId = `round-${betId}`;
+
+    // 1. Submit original BET of 40.00 -> balance becomes 60.00
+    const betRes = await request("/wagering/transactions", {
+      method: "POST",
+      headers: { "idempotency-key": `idem-${betId}` },
+      body: JSON.stringify({
+        providerId: "concurrency-provider",
+        externalTransactionId: betId,
+        walletId: target.id,
+        playerId,
+        currency: "BRL",
+        amount: "40.00",
+        kind: "BET",
+        roundId,
+      }),
+    });
+    expect(betRes.status).toBe(200);
+
+    // 2. Submit two concurrent refunds of 40.00 referencing the same BET
+    const ref1 = `ref-1-${randomUUID()}`;
+    const ref2 = `ref-2-${randomUUID()}`;
+
+    const responses = await Promise.all([
+      request("/wagering/transactions", {
+        method: "POST",
+        headers: { "idempotency-key": `idem-${ref1}` },
+        body: JSON.stringify({
+          providerId: "concurrency-provider",
+          externalTransactionId: ref1,
+          walletId: target.id,
+          playerId,
+          currency: "BRL",
+          amount: "40.00",
+          kind: "REFUND",
+          roundId,
+          referenceExternalTransactionId: betId,
+        }),
+      }),
+      request("/wagering/transactions", {
+        method: "POST",
+        headers: { "idempotency-key": `idem-${ref2}` },
+        body: JSON.stringify({
+          providerId: "concurrency-provider",
+          externalTransactionId: ref2,
+          walletId: target.id,
+          playerId,
+          currency: "BRL",
+          amount: "40.00",
+          kind: "REFUND",
+          roundId,
+          referenceExternalTransactionId: betId,
+        }),
+      }),
+    ]);
+
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 422]);
+
+    const errorPayload = (await responses.find((r) => r.status === 422)?.json()) as {
+      failureCode?: string;
+      code?: string;
+    };
+    expect(errorPayload.failureCode ?? errorPayload.code).toBe(
+      "REFERENCE_ALREADY_REVERSED",
+    );
+
+    // 3. Reconcile wallet: 100 (initial) - 40 (bet) + 40 (refund) = 100
+    const reconciliation = await request(
+      `/wallets/${target.id}/reconciliation`,
+      { method: "POST" },
+    );
+    expect(await reconciliation.json()).toMatchObject({
+      storedBalance: { amount: "100.00", currency: "BRL" },
+      calculatedBalance: { amount: "100.00", currency: "BRL" },
+      consistent: true,
+      checkedEntries: 3,
+    });
+  });
 });

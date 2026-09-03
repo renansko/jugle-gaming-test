@@ -1,7 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { LockMode } from "@mikro-orm/core";
 import { type EntityManager, MikroORM } from "@mikro-orm/postgresql";
-import { randomUUID } from "node:crypto";
 import { DomainError } from "../../domain/shared/domain-error";
 import { Money } from "../../domain/shared/money";
 import { Wallet } from "../../domain/wallet/wallet";
@@ -18,6 +17,15 @@ import {
 } from "../../domain/messaging/integration-event";
 import { canonicalWagerPayloadHash } from "./canonical-payload";
 import { OperationalMetrics } from "../../infrastructure/observability/operational-metrics";
+import { type Clock, SystemClock } from "../../domain/common/clock";
+import {
+  CryptoIdGenerator,
+  type IdGenerator,
+} from "../../domain/common/id-generator";
+import {
+  type BackoffPolicy,
+  DefaultBackoffPolicy,
+} from "../../domain/common/backoff-policy";
 
 export type WagerKind = "BET" | "WIN" | "LOSS" | "REFUND" | "ROLLBACK";
 
@@ -48,7 +56,6 @@ export interface ProcessWagerOutput {
   idempotentReplay: boolean;
 }
 
-
 export interface InboxContext {
   consumerName: string;
   messageId: string;
@@ -61,6 +68,13 @@ export interface WageringContext {
   inbox?: InboxContext;
 }
 
+export interface WageringExecutionHooks {
+  beforeLock?: (input: ProcessWagerInput) => Promise<void> | void;
+  afterLock?: (input: ProcessWagerInput) => Promise<void> | void;
+  beforeApply?: (input: ProcessWagerInput) => Promise<void> | void;
+  beforeFlush?: (input: ProcessWagerInput) => Promise<void> | void;
+}
+
 /** @wiki docs/brain/services/WageringService.md */
 @Injectable()
 export class WageringService {
@@ -69,13 +83,17 @@ export class WageringService {
     private readonly orm: MikroORM,
     @Inject(OperationalMetrics)
     private readonly metrics: OperationalMetrics,
+    private readonly clock: Clock = new SystemClock(),
+    private readonly idGenerator: IdGenerator = new CryptoIdGenerator(),
+    private readonly backoffPolicy: BackoffPolicy = new DefaultBackoffPolicy(),
+    private readonly hooks?: WageringExecutionHooks,
   ) {}
 
   public async execute(
     input: ProcessWagerInput,
     context: WageringContext = {},
   ): Promise<ProcessWagerOutput> {
-    const startedAt = Date.now();
+    const startedAt = this.clock.nowMs();
     const amount = Money.create(input.amount, input.currency);
     const payloadHash = canonicalWagerPayloadHash({
       ...input,
@@ -111,10 +129,13 @@ export class WageringService {
             );
           }
 
+          await this.hooks?.beforeLock?.(input);
           const walletEntity = await this.lockWallet(
             entityManager,
             input.walletId,
           );
+          await this.hooks?.afterLock?.(input);
+
           const wallet = Wallet.rehydrate({
             ...walletEntity,
             balance: Money.create(walletEntity.balance, walletEntity.currency),
@@ -129,6 +150,7 @@ export class WageringService {
           entityManager.persist(transaction);
           await entityManager.flush();
 
+          await this.hooks?.beforeApply?.(input);
           await this.processWagerMovement(
             entityManager,
             transaction,
@@ -138,7 +160,7 @@ export class WageringService {
           );
 
           if (transaction.status === "PENDING_REFERENCE") {
-            transaction.nextReferenceAttemptAt = new Date();
+            transaction.nextReferenceAttemptAt = this.clock.now();
           }
 
           walletEntity.balance = wallet.balance.amount;
@@ -151,6 +173,7 @@ export class WageringService {
             this.stageInbox(entityManager, context.inbox);
           }
 
+          await this.hooks?.beforeFlush?.(input);
           await entityManager.flush();
           return this.recordOutput(transaction, false, startedAt);
         });
@@ -237,13 +260,16 @@ export class WageringService {
     entityManager: EntityManager,
     walletId: string,
   ): Promise<WalletEntity> {
-    const lockStartedAt = Date.now();
+    const lockStartedAt = this.clock.nowMs();
     const walletEntity = await entityManager.findOne(
       WalletEntity,
       { id: walletId },
       { lockMode: LockMode.PESSIMISTIC_WRITE },
     );
-    this.metrics.observe("wallet_lock_duration_ms", Date.now() - lockStartedAt);
+    this.metrics.observe(
+      "wallet_lock_duration_ms",
+      this.clock.nowMs() - lockStartedAt,
+    );
 
     if (!walletEntity) {
       throw new DomainError("WALLET_NOT_FOUND", "Wallet not found");
@@ -258,8 +284,9 @@ export class WageringService {
     amount: Money,
     payloadHash: string,
   ): WagerTransactionEntity {
+    const now = this.clock.now();
     return entityManager.create(WagerTransactionEntity, {
-      id: randomUUID(),
+      id: this.idGenerator.generate(),
       idempotencyKey: input.idempotencyKey,
       providerId: input.providerId,
       externalTransactionId: input.externalTransactionId,
@@ -274,8 +301,8 @@ export class WageringService {
       referenceExternalTransactionId: input.referenceExternalTransactionId,
       status: "PENDING",
 
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     });
   }
 
@@ -548,8 +575,8 @@ export class WageringService {
         (input.kind === "ROLLBACK" && reference?.kind !== "BET");
 
       const entry = isDebit
-        ? wallet.debit(amount, transaction.id, randomUUID())
-        : wallet.credit(amount, transaction.id, randomUUID());
+        ? wallet.debit(amount, transaction.id, this.idGenerator.generate())
+        : wallet.credit(amount, transaction.id, this.idGenerator.generate());
 
       const ledgerEntity = entityManager.create(WalletLedgerEntryEntity, {
         id: entry.id,
@@ -586,10 +613,7 @@ export class WageringService {
     amount: Money,
     input: ProcessWagerInput,
   ): Promise<WagerTransactionEntity | null> {
-    const reference = await entityManager.findOne(WagerTransactionEntity, {
-      providerId: input.providerId,
-      externalTransactionId: input.referenceExternalTransactionId ?? "",
-    });
+    const reference = await this.findReferenceTransaction(entityManager, input);
 
     if (!reference) {
       transaction.status = "PENDING_REFERENCE";
@@ -598,38 +622,119 @@ export class WageringService {
 
     transaction.referenceTransactionId = reference.id;
 
-    if (reference.status !== "PROCESSED") {
-      this.reject(transaction, wallet, "REFERENCE_NOT_PROCESSED");
+    const isValid = this.validateReferenceRules(
+      transaction,
+      wallet,
+      reference,
+      amount,
+      input,
+    );
+    if (!isValid) {
       return null;
     }
 
-    if (!this.matchesScope(reference, input)) {
-      this.reject(transaction, wallet, "REFERENCE_SCOPE_MISMATCH");
-      return null;
-    }
-
-    if (this.isAmountMismatch(input.kind, reference.amount, amount.amount)) {
-      this.reject(transaction, wallet, "REFERENCE_AMOUNT_MISMATCH");
-      return null;
-    }
-
-    if (this.isInvalidReferenceKind(input.kind, reference.kind)) {
-      this.reject(transaction, wallet, "INVALID_REFERENCE_KIND");
+    const isDuplicate = await this.isAlreadyReversed(
+      entityManager,
+      reference.id,
+      input.kind,
+      transaction.id,
+    );
+    if (isDuplicate) {
+      this.reject(transaction, wallet, "REFERENCE_ALREADY_REVERSED");
       return null;
     }
 
     return reference;
   }
 
+  private async findReferenceTransaction(
+    entityManager: EntityManager,
+    input: ProcessWagerInput,
+  ): Promise<WagerTransactionEntity | null> {
+    const extId = input.referenceExternalTransactionId;
+    if (!extId) {
+      return null;
+    }
+
+    const byProvider = await entityManager.findOne(WagerTransactionEntity, {
+      providerId: input.providerId,
+      externalTransactionId: extId,
+    });
+    if (byProvider) {
+      return byProvider;
+    }
+
+    return entityManager.findOne(WagerTransactionEntity, {
+      externalTransactionId: extId,
+    });
+  }
+
+  private validateReferenceRules(
+    transaction: WagerTransactionEntity,
+    wallet: Wallet,
+    reference: WagerTransactionEntity,
+    amount: Money,
+    input: ProcessWagerInput,
+  ): boolean {
+    if (reference.status !== "PROCESSED") {
+      this.reject(transaction, wallet, "REFERENCE_NOT_PROCESSED");
+      return false;
+    }
+
+    if (!this.matchesScope(reference, input)) {
+      this.reject(transaction, wallet, "REFERENCE_SCOPE_MISMATCH");
+      return false;
+    }
+
+    if (this.isAmountMismatch(input.kind, reference.amount, amount.amount)) {
+      this.reject(transaction, wallet, "REFERENCE_AMOUNT_MISMATCH");
+      return false;
+    }
+
+    if (this.isInvalidReferenceKind(input.kind, reference.kind)) {
+      this.reject(transaction, wallet, "INVALID_REFERENCE_KIND");
+      return false;
+    }
+
+    return true;
+  }
+
+  private async isAlreadyReversed(
+    entityManager: EntityManager,
+    referenceId: string,
+    kind: WagerKind,
+    currentTransactionId: string,
+  ): Promise<boolean> {
+    const isReversal = kind === "REFUND" || kind === "ROLLBACK";
+    if (!isReversal) {
+      return false;
+    }
+
+    const existing = await entityManager.findOne(WagerTransactionEntity, {
+      referenceTransactionId: referenceId,
+      kind,
+      status: { $in: ["PENDING", "PENDING_REFERENCE", "PROCESSED"] },
+      id: { $ne: currentTransactionId },
+    });
+    return existing !== null;
+  }
+
   private matchesScope(
     reference: WagerTransactionEntity,
     input: ProcessWagerInput,
   ): boolean {
+    const providerMatches =
+      !reference.providerId || reference.providerId === input.providerId;
+    const playerMatches = reference.playerId === input.playerId;
+    const walletMatches = reference.walletId === input.walletId;
+    const currencyMatches = reference.currency === input.currency;
+    const roundMatches = reference.roundId === input.roundId;
     return (
-      reference.playerId === input.playerId &&
-      reference.walletId === input.walletId &&
-      reference.currency === input.currency &&
-      reference.roundId === input.roundId
+      providerMatches &&
+      playerMatches &&
+      walletMatches &&
+      currencyMatches &&
+      roundMatches
     );
   }
 
@@ -669,11 +774,11 @@ export class WageringService {
 
   private stageInbox(entityManager: EntityManager, inbox: InboxContext): void {
     const inboxEntity = entityManager.create(InboxMessageEntity, {
-      id: randomUUID(),
+      id: this.idGenerator.generate(),
       consumerName: inbox.consumerName,
       messageId: inbox.messageId,
       payloadHash: inbox.payloadHash,
-      processedAt: new Date(),
+      processedAt: this.clock.now(),
     });
     entityManager.persist(inboxEntity);
   }
@@ -792,7 +897,7 @@ export class WageringService {
 
     this.metrics.observe(
       "wager_processing_latency_ms",
-      Date.now() - startedAt,
+      this.clock.nowMs() - startedAt,
       {
         channel: "application",
       },
@@ -817,11 +922,8 @@ export class WageringService {
   }
 
   private async retryDelay(attempt: number): Promise<void> {
-    const baseDelayMs = 20 * 2 ** attempt;
-    const jitterMs = Math.floor(Math.random() * 20);
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, baseDelayMs + jitterMs),
-    );
+    const delayMs = this.backoffPolicy.computeDelayMs(attempt, 20, 20);
+    await this.backoffPolicy.delay(delayMs);
   }
 
   private isUniqueViolation(error: unknown): boolean {

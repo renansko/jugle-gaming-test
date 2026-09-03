@@ -10,7 +10,11 @@ Carregar a wallet com `FOR UPDATE` dentro da transação, validar saldo/referên
 
 ## Reversões
 
-Bloquear wallet e registros de referência em ordem determinística. Uniques condicionais impedem duas reversões do mesmo tipo mesmo sob corrida.
+Bloquear wallet e registros de referência em ordem determinística. Verificação explícita prévia e index condicional (`wager_transactions_reference_kind_unique`) impedem duas reversões do mesmo tipo mesmo sob corrida, rejeitando a duplicata com `REFERENCE_ALREADY_REVERSED` sem lançamento financeiro.
+
+## Sincronização e Determinismo
+
+Testes de concorrência e race conditions utilizam barreiras de sincronização (`ConcurrencyBarrier`) e hooks de execução no serviço (`WageringExecutionHooks`), garantindo que transações alcancem o trecho crítico simultaneamente sem depender de sleeps.
 
 ## Outbox
 
