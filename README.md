@@ -132,17 +132,44 @@ stateDiagram-v2
     Refactor --> [*]: Mudança concluída
 ```
 
-Com Bun instalado localmente:
+Para instalar o Bun no host Linux ou WSL:
+
+```sh
+curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc
+bun --version
+```
+
+O projeto declara Bun 1.1.38 em `package.json`. Com o Bun disponível localmente,
+instale as dependências e execute as validações que não precisam da infraestrutura:
 
 ```sh
 bun install
 bun run check
-bun run test:integration
-bun run test:concurrency
-bun run migration:fresh
 ```
 
-O gate completo é `bun run hardening`. O roteiro para três instâncias está em [Hardening](docs/HARDENING.md).
+Integração, concorrência e migrations usam PostgreSQL, LocalStack e instâncias da
+aplicação na rede do Docker. Execute-as pelo Compose, não diretamente no host:
+
+```sh
+docker compose -f compose.yaml -f compose.hardening.yaml up -d --build --wait postgres localstack
+docker compose -f compose.yaml -f compose.hardening.yaml run --rm app bun run migration:fresh
+docker compose -f compose.yaml -f compose.hardening.yaml up -d --scale app=3 --wait app
+docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test bun run test:integration
+docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test bun run test:concurrency
+```
+
+Para executar o gate completo no container de testes, substitua os dois últimos
+comandos de teste por:
+
+```sh
+docker compose -f compose.yaml -f compose.hardening.yaml run --rm --no-deps test bun run hardening
+```
+
+Ao terminar, remova a stack de validação com
+`docker compose -f compose.yaml -f compose.hardening.yaml down`. Adicione `-v`
+somente se também quiser apagar os dados locais do PostgreSQL. O roteiro detalhado
+para três instâncias está em [Hardening](docs/HARDENING.md).
 
 ## 6. Aprofunde-se
 
