@@ -174,20 +174,21 @@ PostgreSQL e LocalStack, mantém três réplicas da aplicação e roda o hardeni
 
 | Evidência | Resultado comprovado |
 |---|---|
-| Testes unitários | 79 aprovados |
+| Testes unitários | 87 aprovados |
 | Testes de integração | 19 aprovados |
 | Testes de concorrência | 4 aprovados |
-| Total do gate automatizado | 102 testes aprovados |
+| Total do hardening | 110 testes aprovados |
+| Carga curta no CI | 1.001 requisições; 0 falhas técnicas |
 | Instâncias simultâneas | 3 réplicas saudáveis |
 | Migrations | `up → down → up` desde banco vazio |
 | Índices críticos | 4 verificados por plano de execução |
 | Documentação do Brain | 23 links internos validados |
 
-As provas ficam disponíveis no [histórico público do CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
+Esses resultados estão no [Action verde do commit `db917b0`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049).
+As demais execuções ficam disponíveis no [histórico público do CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
 no [roteiro reproduzível de hardening](docs/HARDENING.md) e nos próprios
-[testes](tests). Esta apresentação responde às lacunas levantadas no
-[benchmark público da issue #12](https://github.com/renansko/jugle-gaming-test/issues/12)
-sem transformar quantidade de arquivos ou testes em nota de qualidade.
+[testes](tests). A apresentação privilegia provas reproduzíveis, sem
+transformar quantidade de arquivos ou testes em nota de qualidade.
 
 > Este repositório possui CI automatizado. Deploy contínuo não está configurado,
 > pois o escopo atual valida a aplicação localmente com Docker e não publica em
@@ -210,9 +211,8 @@ Com o ambiente em execução, as métricas podem ser consultadas diretamente em
 | `reconciliation_divergences_total` | Diferenças detectadas entre saldo e ledger |
 
 O CI comprova que essas séries são expostas e que os cenários funcionais
-permanecem verdes. Throughput e p50/p95/p99 ainda não foram medidos; esses
-números exigem um ensaio de carga controlado e não são inferidos da suíte
-funcional.
+permanecem verdes. Throughput e p50/p95/p99 são medidos separadamente pelo
+`test:load`; não são inferidos da suíte funcional.
 
 ## 9. Carga curta reproduzível
 
@@ -229,25 +229,25 @@ Em uma stack limpa, execute:
 ```bash
 docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --build --wait postgres localstack
 docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm app bun run migration:up
-docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --scale app=3 app prometheus grafana
+docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up -d --scale app=3 --wait app prometheus grafana
 docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm --no-deps test bun run test:load
 ```
 
-O perfil padrão aquece por 2 s e mede 10 s com concorrência 8. A execução
-versionada obteve 128,4 operações/s, p50 de 61,78 ms, p95 de 106,37 ms e p99
-de 127,06 ms, sem falha técnica. A outbox chegou a 1.418 pendências e convergiu
-a zero; oito wallets reconciliaram saldo e ledger. Não existe gate mínimo de
+O perfil padrão aquece por 2 s e mede 10 s com concorrência 8. O
+[Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
+executou 1.001 requisições a 100,1 req/s, com p50 de 70,80 ms, p95 de 175,90 ms
+e p99 de 282,40 ms, sem falha técnica. A outbox chegou a 903 pendências e
+convergiu a zero; oito wallets reconciliaram saldo e ledger. Não existe gate mínimo de
 RPS: desempenho é reportado, enquanto erro técnico ou quebra de invariante
 falha o comando.
 
 Veja o [relatório completo](docs/load/short-load-report.md), o
-[job público de CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
-o [Grafana local](http://localhost:3001) e o contexto das issues
-[#11](https://github.com/renansko/jugle-gaming-test/issues/11) e
-[#12](https://github.com/renansko/jugle-gaming-test/issues/12). Os resultados
-são locais, curtos e dependentes do host; não equivalem a um SLO de produção.
+[execução pública no CI](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049),
+o [Grafana local](http://localhost:3001) e a documentação de carga
+versionada. Os resultados são locais, curtos e dependentes do host; não
+equivalem a um SLO de produção.
 
-## 10. Evidências dos testes da issue #13
+## 10. Evidências dos testes
 
 ```mermaid
 flowchart LR
@@ -258,9 +258,7 @@ flowchart LR
     Catalog --> Load["Carga curta"]
 ```
 
-As evidências públicas referentes à
-[issue #13](https://github.com/renansko/jugle-gaming-test/issues/13) estão
-organizadas por tipo de validação:
+As evidências públicas estão organizadas por tipo de validação:
 
 - [Catálogo e critérios de leitura](evidencias/README.md);
 - [testes unitários](evidencias/testes-unitarios.md);

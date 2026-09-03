@@ -1,4 +1,4 @@
-# Evidência de testes de integração — issue #13
+# Evidência de testes de integração
 
 ## Visão geral e objetivo
 
@@ -86,12 +86,13 @@ flowchart LR
     Result --> Stack["PostgreSQL + LocalStack"]
 ```
 
-O hardening registrado em 2026-09-01 aprovou **19 testes de integração** com
-PostgreSQL e LocalStack. A evidência não inclui os quatro testes de concorrência.
+O job `integration` do Action 33697194049 executou `bun run hardening` e aprovou
+**19 testes de integração** com PostgreSQL e LocalStack. A contagem não inclui
+os quatro testes de concorrência executados em seguida.
 
 ## Referências no código
 
 - [Testes de integração](../tests/integration)
 - [Harness compartilhado](../tests/support)
 - [Workflow de CI](../.github/workflows/ci.yml)
-- [Issue #13](https://github.com/renansko/jugle-gaming-test/issues/13)
+- [Action verde — job `integration`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)

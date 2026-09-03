@@ -1,4 +1,4 @@
-# Catálogo de evidências — issue #13
+# Catálogo de evidências executadas
 
 ## Visão geral e objetivo
 
@@ -11,8 +11,9 @@ mindmap
     Carga curta
 ```
 
-Este catálogo liga cada afirmação verificável da issue #13 ao comando, ao
-resultado registrado e à fonte que permite reproduzi-la.
+Este catálogo liga cada afirmação verificável ao comando, ao resultado registrado
+e ao [Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
+que permite auditá-la.
 
 ## Contexto do problema
 
@@ -86,23 +87,22 @@ abaixo de um valor arbitrário.
 
 ```mermaid
 flowchart LR
-    Unit["Unidade atual: 85"] --> Current["Check local verde"]
-    Baseline["Unidade no hardening: 79"] --> Gate["Gate funcional: 102"]
+    Unit["Unidade: 87"] --> Gate["Hardening: 110 testes"]
     Integration["Integração: 19"] --> Gate
     Concurrency["Concorrência: 4"] --> Gate
-    Load["Carga: 1.284 operações"] --> Report["Relatório versionado"]
+    Load["Carga CI: 1.001 requisições"] --> Report["Artefato do Action"]
 ```
 
 | Evidência | Resultado versionado |
 |---|---|
-| [Testes unitários](testes-unitarios.md) | 85 aprovados no check local; 79 no hardening registrado |
+| [Testes unitários](testes-unitarios.md) | 87 aprovados no Action |
 | [Testes de integração](testes-integracao.md) | 19 aprovados |
 | [Testes de concorrência](testes-concorrencia.md) | 4 aprovados em três réplicas |
-| [Carga curta](carga-curta.md) | 1.284 operações; invariantes válidas |
+| [Carga curta](carga-curta.md) | 1.001 requisições; 0 falhas técnicas; invariantes válidas |
 
 ## Referências no código
 
 - [Suítes de testes](../tests)
 - [Workflow de CI](../.github/workflows/ci.yml)
 - [Relatório de carga](../docs/load/short-load-report.md)
-- [Issue #13](https://github.com/renansko/jugle-gaming-test/issues/13)
+- [Action verde — run 33697194049](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)

@@ -1,4 +1,4 @@
-# Evidência de testes unitários — issue #13
+# Evidência de testes unitários
 
 ## Visão geral e objetivo
 
@@ -82,18 +82,17 @@ parcial como suíte verde.
 
 ```mermaid
 flowchart LR
-    Command["bun run check"] --> Current["85 testes aprovados"]
-    Baseline["Hardening registrado"] --> Result["79 testes aprovados"]
+    Action["Action 33697194049"] --> Command["bun run check"]
+    Command --> Result["87 testes aprovados"]
 ```
 
-O check local em Docker de 2026-09-02 aprovou **85 testes unitários**, com lint
-e TypeScript verdes. O hardening registrado em 2026-09-01 aprovou **79**; essa
-contagem anterior permanece identificada para não reescrever evidência
-histórica. A execução pública atual deve ser consultada no CI.
+O job `check` do Action 33697194049 aprovou **87 testes unitários**, com lint e
+TypeScript verdes. O job `integration` repetiu essa suíte dentro de
+`bun run hardening` antes dos testes com dependências reais.
 
 ## Referências no código
 
 - [Testes unitários](../tests/unit)
 - [Script `test:unit`](../package.json)
 - [Workflow de CI](../.github/workflows/ci.yml)
-- [Issue #13](https://github.com/renansko/jugle-gaming-test/issues/13)
+- [Action verde — job `check`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)

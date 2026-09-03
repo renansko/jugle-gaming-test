@@ -8,6 +8,8 @@ const evidenceFiles = [
   "evidencias/testes-concorrencia.md",
   "evidencias/carga-curta.md",
 ];
+const successfulActionRun =
+  "https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049";
 
 describe("README delivery evidence", () => {
   const readme = readFileSync("README.md", "utf8");
@@ -24,16 +26,16 @@ describe("README delivery evidence", () => {
 
   test("links the live CI and reports only metrics supported by hardening", () => {
     expect(readme).toContain("actions/workflows/ci.yml/badge.svg?branch=main");
-    expect(readme).toContain("| Testes unitários | 79 aprovados |");
+    expect(readme).toContain("| Testes unitários | 87 aprovados |");
     expect(readme).toContain("| Testes de integração | 19 aprovados |");
     expect(readme).toContain("| Testes de concorrência | 4 aprovados |");
     expect(readme).toContain("| Instâncias simultâneas | 3 réplicas saudáveis |");
-    expect(readme).toContain("issues/12");
-    expect(readme).toContain("p50/p95/p99 ainda não foram medidos");
+    expect(readme).toContain("| Carga curta no CI | 1.001 requisições; 0 falhas técnicas |");
   });
 
-  test("references the public evidence catalog and every test evidence file", () => {
-    expect(readme).toContain("https://github.com/renansko/jugle-gaming-test/issues/13");
+  test("references the successful Action run and local evidence instead of issues", () => {
+    expect(readme).toContain(successfulActionRun);
+    expect(readme).not.toContain("github.com/renansko/jugle-gaming-test/issues/");
 
     for (const evidenceFile of evidenceFiles) {
       expect(readme).toContain(`](${evidenceFile})`);
@@ -41,7 +43,9 @@ describe("README delivery evidence", () => {
       const evidence = readFileSync(evidenceFile, "utf8");
       expect(evidence).toContain("## Evidência verificável");
       expect(evidence).toContain("```mermaid");
-      expect(evidence).toContain("issue #13");
+      expect(evidence).toContain(successfulActionRun);
+      expect(evidence).not.toContain("github.com/renansko/jugle-gaming-test/issues/");
+      expect(evidence.toLowerCase()).not.toContain("issue #13");
     }
   });
 });

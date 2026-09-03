@@ -1,4 +1,4 @@
-# Evidência de carga curta — issue #13
+# Evidência de carga curta
 
 ## Visão geral e objetivo
 
@@ -58,9 +58,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Operations["1.284 operações"] --> Transactions["1.284 transações"]
-    Transactions --> Ledger["1.164 lançamentos"]
-    Transactions --> Outbox["2.440 eventos"]
+    Operations["1.001 requisições"] --> Transactions["1.001 transações"]
+    Transactions --> Ledger["909 lançamentos"]
+    Transactions --> Outbox["1.902 eventos"]
     Ledger --> Reconcile["8 wallets reconciliadas"]
     Outbox --> Converge["Pendência final zero"]
 ```
@@ -72,9 +72,9 @@ foram verificadas automaticamente ao término.
 
 ```mermaid
 flowchart TD
-    Outcome{"Resultado da operação"} --> Success["Sucesso: 885"]
-    Outcome --> Rejection["Rejeição: 109"]
-    Outcome --> Conflict["Conflito: 290"]
+    Outcome{"Resultado da operação"} --> Success["Sucesso: 730"]
+    Outcome --> Rejection["Rejeição: 91"]
+    Outcome --> Conflict["Conflito: 180"]
     Outcome --> Technical["Falha técnica: 0"]
     Technical --> Gate{"Zero e invariantes válidas?"}
     Gate -->|"Sim"| Green["Exit code 0"]
@@ -87,16 +87,16 @@ negócio ou conflitos idempotentes como indisponibilidade técnica.
 
 ```mermaid
 flowchart LR
-    Run["Execução 2026-09-02"] --> Rate["128,4 ops/s"]
-    Run --> P50["p50 61,78 ms"]
-    Run --> P95["p95 106,37 ms"]
-    Run --> P99["p99 127,06 ms"]
+    Run["Action 33697194049"] --> Rate["100,1 req/s"]
+    Run --> P50["p50 70,80 ms"]
+    Run --> P95["p95 175,90 ms"]
+    Run --> P99["p99 282,40 ms"]
     Run --> Exit["Exit code 0"]
 ```
 
-O relatório versionado registra commit, ambiente, massa isolada, comandos,
-metodologia, 1.284 operações e convergência da outbox de pico 1.418 para zero.
-São métricas locais do cliente, não um SLO de produção.
+O artefato do Action registra commit, ambiente, massa isolada, comandos,
+metodologia, 1.001 requisições e convergência da outbox de pico 903 para zero.
+São métricas do runner hospedado pelo GitHub, não um SLO de produção.
 
 ## Referências no código
 
@@ -104,4 +104,4 @@ São métricas locais do cliente, não um SLO de produção.
 - [Runner de carga](../scripts/load/run-short-load.ts)
 - [Contrato do relatório](../scripts/load/load-report.ts)
 - [Dashboard Grafana](../docker/grafana/provisioning/dashboards/wagering-dashboard.json)
-- [Issue #13](https://github.com/renansko/jugle-gaming-test/issues/13)
+- [Action verde — job `load-test`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)

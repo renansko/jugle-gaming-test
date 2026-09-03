@@ -1,4 +1,4 @@
-# Evidência de testes de concorrência — issue #13
+# Evidência de testes de concorrência
 
 ## Visão geral e objetivo
 
@@ -93,12 +93,12 @@ flowchart LR
     Result --> Replicas["3 réplicas saudáveis"]
 ```
 
-O hardening registrado em 2026-09-01 aprovou **4 testes de concorrência** em
-três réplicas, incluindo a reconciliação matemática do banco.
+O job `integration` do Action 33697194049 aprovou **4 testes de concorrência**
+em três réplicas, incluindo a reconciliação matemática do banco.
 
 ## Referências no código
 
 - [Testes de concorrência](../tests/concurrency)
 - [Compose de hardening](../compose.hardening.yaml)
 - [Convenção de concorrência](../docs/brain/conventions/Concurrency.md)
-- [Issue #13](https://github.com/renansko/jugle-gaming-test/issues/13)
+- [Action verde — job `integration`](https://github.com/renansko/jugle-gaming-test/actions/runs/33697194049)
