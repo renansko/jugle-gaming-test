@@ -87,7 +87,7 @@ negócio ou conflitos idempotentes como indisponibilidade técnica.
 
 ```mermaid
 flowchart LR
-    Run["Action 33703096311"] --> Rate["139,8 req/s"]
+    Run["Action 33705456587"] --> Rate["139,8 req/s"]
     Run --> P50["p50 49,54 ms"]
     Run --> P95["p95 120,45 ms"]
     Run --> P99["p99 180,99 ms"]
@@ -104,4 +104,4 @@ São métricas do runner hospedado pelo GitHub, não um SLO de produção.
 - [Runner de carga](../scripts/load/run-short-load.ts)
 - [Contrato do relatório](../scripts/load/load-report.ts)
 - [Dashboard Grafana](../docker/grafana/provisioning/dashboards/wagering-dashboard.json)
-- [Action verde — job `load-test`](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)
+- [Action verde — job `load-test`](https://github.com/renansko/jugle-gaming-test/actions/runs/33705456587)

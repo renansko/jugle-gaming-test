@@ -82,12 +82,12 @@ A suíte diferencia falha transitória, rejeição de domínio e mensagem invál
 
 ```mermaid
 flowchart LR
-    Command["bun run test:integration"] --> Result["19 testes aprovados"]
+    Command["bun run test:integration"] --> Result["22 testes aprovados"]
     Result --> Stack["PostgreSQL + LocalStack"]
 ```
 
-O job `integration` do Action 33703096311 executou `bun run hardening` e aprovou
-**19 testes de integração** com PostgreSQL e LocalStack. A contagem não inclui
+O job `integration` do Action 33705456587 executou `bun run hardening` e aprovou
+**22 testes de integração** com PostgreSQL e LocalStack. A contagem não inclui
 os quatro testes de concorrência executados em seguida.
 
 ## Referências no código
@@ -95,4 +95,4 @@ os quatro testes de concorrência executados em seguida.
 - [Testes de integração](../tests/integration)
 - [Harness compartilhado](../tests/support)
 - [Workflow de CI](../.github/workflows/ci.yml)
-- [Action verde — job `integration`](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)
+- [Action verde — job `integration`](https://github.com/renansko/jugle-gaming-test/actions/runs/33705456587)

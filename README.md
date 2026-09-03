@@ -174,17 +174,17 @@ PostgreSQL e LocalStack, mantém três réplicas da aplicação e roda o hardeni
 
 | Evidência | Resultado comprovado |
 |---|---|
-| Testes unitários | 102 aprovados |
-| Testes de integração | 19 aprovados |
+| Testes unitários | 110 aprovados |
+| Testes de integração | 22 aprovados |
 | Testes de concorrência | 4 aprovados |
-| Total do hardening | 125 testes aprovados |
+| Total do hardening | 136 testes aprovados |
 | Carga curta no CI | 1.398 requisições; 0 falhas técnicas |
 | Instâncias simultâneas | 3 réplicas saudáveis |
 | Migrations | `up → down → up` desde banco vazio |
 | Índices críticos | 4 verificados por plano de execução |
 | Documentação do Brain | 23 links internos validados |
 
-Esses resultados estão no [Action verde do commit `089ef30`](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311).
+Esses resultados estão no [Action verde do commit `4efb690`](https://github.com/renansko/jugle-gaming-test/actions/runs/33705456587).
 As demais execuções ficam disponíveis no [histórico público do CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
 no [roteiro reproduzível de hardening](docs/HARDENING.md) e nos próprios
 [testes](tests). A apresentação privilegia provas reproduzíveis, sem
