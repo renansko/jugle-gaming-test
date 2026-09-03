@@ -10,6 +10,8 @@ const evidenceFiles = [
 ];
 const successfulActionRun =
   "https://github.com/renansko/jugle-gaming-test/actions/runs/33705456587";
+const currentHeadActionRun =
+  "https://github.com/renansko/jugle-gaming-test/actions/runs/33746305637";
 
 describe("README delivery evidence", () => {
   const readme = readFileSync("README.md", "utf8");
@@ -26,15 +28,16 @@ describe("README delivery evidence", () => {
 
   test("links the live CI and reports only metrics supported by hardening", () => {
     expect(readme).toContain("actions/workflows/ci.yml/badge.svg?branch=main");
-    expect(readme).toContain("| Testes unitários | 152 aprovados |");
+    expect(readme).toContain("| Testes unitários | 154 aprovados |");
     expect(readme).toContain("| Testes de integração | 28 aprovados |");
     expect(readme).toContain("| Testes de concorrência | 5 aprovados |");
+    expect(readme).toContain("| Total do hardening | 187 testes aprovados |");
     expect(readme).toContain("| Instâncias simultâneas | 3 réplicas saudáveis |");
     expect(readme).toContain("| Carga curta no CI | 1.398 requisições; 0 falhas técnicas |");
   });
 
   test("references the successful Action run and local evidence instead of issues", () => {
-    expect(readme).toContain(successfulActionRun);
+    expect(readme).toContain(currentHeadActionRun);
     expect(readme).not.toContain("github.com/renansko/jugle-gaming-test/issues/");
 
     for (const evidenceFile of evidenceFiles) {
@@ -62,5 +65,9 @@ describe("README delivery evidence", () => {
     expect(readme).toContain("TEST_APP_URL=http://app:3000");
     expect(readme).toContain("0 pass");
     expect(readme).toContain("out-of-order samples");
+    expect(readme).toContain("| Indicador | Resultado |");
+    expect(readme).toContain("| Aquecimento | 2 s |");
+    expect(readme).toContain("| Throughput | 139,8 req/s |");
+    expect(readme).toContain("| Outbox | Pico de 1.605 pendências; convergiu a zero |");
   });
 });

@@ -205,17 +205,17 @@ PostgreSQL e LocalStack, mantém três réplicas da aplicação e roda o hardeni
 
 | Evidência | Resultado comprovado |
 |---|---|
-| Testes unitários | 152 aprovados |
+| Testes unitários | 154 aprovados |
 | Testes de integração | 28 aprovados |
 | Testes de concorrência | 5 aprovados |
-| Total do hardening | 185 testes aprovados |
+| Total do hardening | 187 testes aprovados |
 | Carga curta no CI | 1.398 requisições; 0 falhas técnicas |
 | Instâncias simultâneas | 3 réplicas saudáveis |
 | Migrations | `up → down → up` desde banco vazio |
 | Índices críticos | 4 verificados por plano de execução |
 | Documentação do Brain | 23 links internos validados |
 
-Esses resultados estão no [Action verde do commit `4efb690`](https://github.com/renansko/jugle-gaming-test/actions/runs/33705456587).
+Esses resultados estão no [Action verde do HEAD `d20b8ffe`](https://github.com/renansko/jugle-gaming-test/actions/runs/33746305637).
 As demais execuções ficam disponíveis no [histórico público do CI](https://github.com/renansko/jugle-gaming-test/actions/workflows/ci.yml),
 no [roteiro reproduzível de hardening](docs/HARDENING.md) e nos próprios
 [testes](tests). A apresentação privilegia provas reproduzíveis, sem
@@ -278,13 +278,23 @@ docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml up
 docker compose -f compose.yaml -f compose.hardening.yaml -f compose.load.yaml run --rm --no-deps test bun run test:load
 ```
 
-O perfil padrão aquece por 2 s e mede 10 s com concorrência 8. O
-[Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311)
-executou 1.398 requisições a 139,8 req/s, com p50 de 49,54 ms, p95 de 120,45 ms
-e p99 de 180,99 ms, sem falha técnica. A outbox chegou a 1.605 pendências e
-convergiu a zero; oito wallets reconciliaram saldo e ledger. Não existe gate mínimo de
-RPS: desempenho é reportado, enquanto erro técnico ou quebra de invariante
-falha o comando.
+| Indicador | Resultado |
+|---|---|
+| Execução | [Action verde](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311) |
+| Aquecimento | 2 s |
+| Medição | 10 s |
+| Concorrência | 8 |
+| Requisições | 1.398 |
+| Throughput | 139,8 req/s |
+| Latência p50 | 49,54 ms |
+| Latência p95 | 120,45 ms |
+| Latência p99 | 180,99 ms |
+| Falhas técnicas | 0 |
+| Outbox | Pico de 1.605 pendências; convergiu a zero |
+| Reconciliação | 8 wallets com saldo igual ao ledger |
+| Critério do gate | Sem mínimo de RPS; falha técnica ou quebra de invariante reprova |
+
+Desempenho é reportado como evidência, sem estabelecer um gate mínimo de RPS.
 
 Veja o [relatório completo](docs/load/short-load-report.md), o
 [execução pública no CI](https://github.com/renansko/jugle-gaming-test/actions/runs/33703096311),

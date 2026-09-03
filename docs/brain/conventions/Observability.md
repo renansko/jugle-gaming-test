@@ -2,7 +2,14 @@
 
 ## Logs
 
-JSON estruturado com `correlationId`, `messageId`, `transactionId`, `walletId` e `providerId`. Não registrar payload completo, saldo, credenciais ou PII desnecessária.
+Em produção, o bootstrap usa `ConsoleLogger` em modo JSON compacto, sem cores ou
+prefixos textuais. Cada registro ocupa uma linha JSON parseável e mantém nível,
+contexto e mensagem estruturada. Em desenvolvimento e teste, o logger padrão do
+Nest é preservado.
+
+Logs de negócio incluem `correlationId`, `messageId`, `transactionId`, `walletId`
+e `providerId`. Não registrar payload completo, saldo, credenciais ou PII
+desnecessária.
 
 ## OpenTelemetry & Métricas
 
