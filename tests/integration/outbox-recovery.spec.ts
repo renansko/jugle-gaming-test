@@ -473,7 +473,7 @@ integration("Outbox recovery, concurrent publishers, and DLQ policy (Issue #16)"
       new SendMessageCommand({
         QueueUrl: queueUrl,
         MessageBody: invalidPayload,
-        MessageGroupId: "invalid-group",
+        MessageGroupId: `invalid-group-${randomUUID()}`,
         MessageDeduplicationId: invalidMsgId,
       }),
     );
@@ -482,6 +482,7 @@ integration("Outbox recovery, concurrent publishers, and DLQ policy (Issue #16)"
 
     // Verify arrival in DLQ
     const dlqMessage = await waitFor(async () => {
+      await harness.consumeOnce();
       const res = await sqs.send(
         new ReceiveMessageCommand({
           QueueUrl: dlqUrl,

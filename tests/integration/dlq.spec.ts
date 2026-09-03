@@ -91,7 +91,7 @@ integration("DLQ integration", () => {
       new SendMessageCommand({
         QueueUrl: queueUrl,
         MessageBody: invalidBody,
-        MessageGroupId: "test-group",
+        MessageGroupId: `test-group-${randomUUID()}`,
         MessageDeduplicationId: invalidMessageId,
       }),
     );
@@ -99,6 +99,7 @@ integration("DLQ integration", () => {
 
     // Wait for message to arrive in DLQ
     const dlqMessage = await waitFor(async () => {
+      await harness.consumeOnce();
       const res = await sqs.send(
         new ReceiveMessageCommand({
           QueueUrl: dlqUrl,
@@ -165,7 +166,7 @@ integration("DLQ integration", () => {
       new SendMessageCommand({
         QueueUrl: queueUrl,
         MessageBody: JSON.stringify(envelope),
-        MessageGroupId: "group",
+        MessageGroupId: `group-${randomUUID()}`,
         MessageDeduplicationId: messageId,
       }),
     );
@@ -173,6 +174,7 @@ integration("DLQ integration", () => {
 
     // Wait for message to arrive in DLQ due to WALLET_NOT_FOUND (domain error)
     const dlqMessage = await waitFor(async () => {
+      await harness.consumeOnce();
       const res = await sqs.send(
         new ReceiveMessageCommand({
           QueueUrl: dlqUrl,
