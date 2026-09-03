@@ -40,3 +40,26 @@ test("rejects the test-only worker switch outside the test environment", () => {
     }),
   ).toThrow("TEST_WORKERS_AUTOSTART");
 });
+
+test("loads default shutdown grace period of 5000ms when not specified", () => {
+  const config = loadConfig(validEnvironment);
+  expect(config.shutdownGracePeriodMs).toBe(5000);
+});
+
+test("loads custom shutdown grace period from environment", () => {
+  const config = loadConfig({
+    ...validEnvironment,
+    SHUTDOWN_GRACE_PERIOD_MS: "2500",
+  });
+  expect(config.shutdownGracePeriodMs).toBe(2500);
+});
+
+test("rejects invalid shutdown grace period", () => {
+  expect(() =>
+    loadConfig({
+      ...validEnvironment,
+      SHUTDOWN_GRACE_PERIOD_MS: "invalid",
+    }),
+  ).toThrow("SHUTDOWN_GRACE_PERIOD_MS");
+});
+

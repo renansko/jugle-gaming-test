@@ -15,7 +15,13 @@ Instrumentação baseada no OpenTelemetry API (`@opentelemetry/api`) através de
 - `wallet_lock_duration_ms`: gauge do tempo sob lock `PESSIMISTIC_WRITE`;
 - `wager_processing_latency_ms`: histograma da latência financeira com buckets,
   soma e contagem; percentis nunca são inferidos do último valor;
-- `outbox_pending` e `outbox_lag_ms`: medidores da fila de eventos da outbox.
+- `outbox_pending` e `outbox_lag_ms`: medidores da fila de eventos da outbox;
+- `consumer_drain_total`: total de shutdowns com drain de mensagens em voo concluído com sucesso;
+- `consumer_visibility_released_total`: mensagens devolvidas com visibilidade 0 durante timeout de encerramento;
+- `sqs_redeliveries_total`: total de mensagens recebidas em redelivery (`receiveCount > 1` ou replay);
+- `shutdown_failures_total`: encerramentos que excederam o prazo (`SHUTDOWN_GRACE_PERIOD_MS`).
+
+Eventos de log padronizados distinguem `consumer_drain_completed`, `consumer_visibility_released`, `sqs_message_redelivered` e `consumer_shutdown_timeout`.
 
 Labels usam baixa cardinalidade. O endpoint `/metrics` suporta negociação de conteúdo (formato texto padrão Prometheus e JSON).
 

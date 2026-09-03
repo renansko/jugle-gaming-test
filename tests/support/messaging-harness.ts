@@ -37,6 +37,10 @@ export class MessagingHarness {
     return this.coordinator.isRunning();
   }
 
+  public getConsumer(): SqsWagerConsumer {
+    return this.consumer;
+  }
+
   public async consumeOnce(): Promise<void> {
     await this.consumer.pollOnce(1);
   }

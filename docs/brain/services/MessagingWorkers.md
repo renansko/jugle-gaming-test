@@ -21,6 +21,8 @@ Cliente SQS, relógio, unit of work, repositórios e métricas.
 - entrada e saída são `at-least-once`;
 - deduplicação é persistente;
 - erros de negócio fazem ack; transitórios voltam; permanentes esgotados vão à DLQ;
+- interrupção do consumer após o commit financeiro e antes do delete recupera estritamente uma vez via inbox, sem lançamentos adicionais;
+- em `SIGTERM`, o polling cessa e mensagens em voo concluem no prazo (`SHUTDOWN_GRACE_PERIOD_MS`) ou recebem visibilidade zero para assunção imediata por outra réplica;
 - uma reversão pendente converge quando a referência válida aparece; o estado pendente anterior não impede a reaplicação;
 - leases expirados e pendências sem agenda voltam a ser elegíveis;
 - nenhum lock SQL é mantido durante chamada de rede ao SQS;

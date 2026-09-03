@@ -6,11 +6,12 @@ import {
   SQSClient,
   SendMessageCommand,
 } from "@aws-sdk/client-sqs";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { z } from "zod";
 import { canonicalWagerPayloadHash } from "../../application/wagering/canonical-payload";
 import {
   type ProcessWagerInput,
+  type ProcessWagerOutput,
   WageringService,
 } from "../../application/wagering/wagering.service";
 import { DomainError } from "../../domain/shared/domain-error";
@@ -63,12 +64,27 @@ const envelopeSchema = z
 
 export type SqsWagerEnvelope = z.infer<typeof envelopeSchema>;
 
+interface InFlightMessage {
+  messageId: string;
+  receiptHandle?: string;
+  startedAt: number;
+  status: "processing" | "completed" | "released";
+}
+
 /** @wiki docs/brain/services/MessagingWorkers.md */
 @Injectable()
 export class SqsWagerConsumer {
+  private readonly logger = new Logger(SqsWagerConsumer.name);
   private readonly client: SQSClient;
+  private readonly inFlightMessages = new Set<InFlightMessage>();
   private activePoll?: AbortController;
   private stopping = false;
+
+  public onAfterCommitBeforeAck?: (context: {
+    messageId: string;
+    receiptHandle?: string;
+    output: ProcessWagerOutput;
+  }) => Promise<void> | void;
 
   public constructor(
     @Inject(AppConfig)
@@ -129,10 +145,88 @@ export class SqsWagerConsumer {
     }
   }
 
-  public stop(): void {
+  public async shutdown(gracePeriodMs?: number): Promise<void> {
     this.stopping = true;
     this.activePoll?.abort();
+
+    const timeout = gracePeriodMs ?? this.config.shutdownGracePeriodMs;
+    const drained = await this.awaitInFlightDrain(timeout);
+
+    if (drained) {
+      this.handleDrainSuccess(timeout);
+    } else {
+      await this.handleDrainTimeout();
+    }
+
     this.client.destroy();
+  }
+
+  public stop(): void {
+    void this.shutdown(0);
+  }
+
+  private async awaitInFlightDrain(timeoutMs: number): Promise<boolean> {
+    const started = Date.now();
+    while (this.inFlightMessages.size > 0 && Date.now() - started < timeoutMs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+    }
+    return this.inFlightMessages.size === 0;
+  }
+
+  private handleDrainSuccess(timeoutMs: number): void {
+    this.metrics.increment("consumer_drain_total");
+    this.logger.log(
+      JSON.stringify({
+        event: "consumer_drain_completed",
+        timeoutMs,
+      }),
+    );
+  }
+
+  private async handleDrainTimeout(): Promise<void> {
+    const activeMessages = Array.from(this.inFlightMessages).filter(
+      (msg) => msg.status === "processing",
+    );
+
+    await Promise.all(
+      activeMessages.map((msg) => this.releaseMessageVisibility(msg)),
+    );
+
+    this.metrics.increment("shutdown_failures_total");
+    this.logger.error(
+      JSON.stringify({
+        event: "consumer_shutdown_timeout",
+        releasedMessages: activeMessages.length,
+      }),
+    );
+  }
+
+  private async releaseMessageVisibility(
+    inFlight: InFlightMessage,
+  ): Promise<void> {
+    inFlight.status = "released";
+    if (!inFlight.receiptHandle) {
+      return;
+    }
+
+    try {
+      await this.client.send(
+        new ChangeMessageVisibilityCommand({
+          QueueUrl: this.config.wagerQueueUrl,
+          ReceiptHandle: inFlight.receiptHandle,
+          VisibilityTimeout: 0,
+        }),
+      );
+      this.metrics.increment("consumer_visibility_released_total");
+      this.logger.warn(
+        JSON.stringify({
+          event: "consumer_visibility_released",
+          messageId: inFlight.messageId,
+        }),
+      );
+    } catch {
+      // Ignored during shutdown if client destroyed
+    }
   }
 
   private async consume(
@@ -151,7 +245,28 @@ export class SqsWagerConsumer {
       return;
     }
 
-    const wagerInput: ProcessWagerInput = this.toWagerInput(envelope);
+    const inFlight: InFlightMessage = {
+      messageId: envelope.messageId,
+      receiptHandle,
+      startedAt: Date.now(),
+      status: "processing",
+    };
+    this.inFlightMessages.add(inFlight);
+
+    try {
+      await this.processWagerMessage(envelope, receiptHandle, attributes);
+    } finally {
+      inFlight.status = "completed";
+      this.inFlightMessages.delete(inFlight);
+    }
+  }
+
+  private async processWagerMessage(
+    envelope: SqsWagerEnvelope,
+    receiptHandle?: string,
+    attributes?: Record<string, string>,
+  ): Promise<void> {
+    const wagerInput = this.toWagerInput(envelope);
     const payloadHash = canonicalWagerPayloadHash(wagerInput);
     const sentAt = Number(attributes?.SentTimestamp ?? Date.now());
     this.metrics.observe(
@@ -159,22 +274,11 @@ export class SqsWagerConsumer {
       Math.max(0, Date.now() - sentAt),
     );
 
-    const visibilityTimer = receiptHandle
-      ? setInterval(() => {
-          void this.client
-            .send(
-              new ChangeMessageVisibilityCommand({
-                QueueUrl: this.config.wagerQueueUrl,
-                ReceiptHandle: receiptHandle,
-                VisibilityTimeout: 60,
-              }),
-            )
-            .catch(() => undefined);
-        }, 30_000)
-      : undefined;
+    const visibilityTimer = this.startVisibilityTimer(receiptHandle);
+    let output: ProcessWagerOutput;
 
     try {
-      const output = await this.wagering.execute(wagerInput, {
+      output = await this.wagering.execute(wagerInput, {
         correlationId: envelope.messageId,
         causationId: envelope.messageId,
         inbox: {
@@ -184,11 +288,9 @@ export class SqsWagerConsumer {
         },
       });
 
-      if (output.idempotentReplay) {
-        this.metrics.increment("inbox_duplicates_total");
-      }
+      this.recordRedeliveryAndReplay(envelope.messageId, attributes, output);
     } catch (error) {
-      await this.handleProcessingError(error, body, receiptHandle);
+      await this.handleProcessingError(error, JSON.stringify(envelope), receiptHandle);
       return;
     } finally {
       if (visibilityTimer) {
@@ -196,8 +298,61 @@ export class SqsWagerConsumer {
       }
     }
 
+    if (this.onAfterCommitBeforeAck) {
+      await this.onAfterCommitBeforeAck({
+        messageId: envelope.messageId,
+        receiptHandle,
+        output,
+      });
+    }
+
     if (receiptHandle) {
       await this.deleteProcessedMessage(receiptHandle);
+    }
+  }
+
+  private startVisibilityTimer(
+    receiptHandle?: string,
+  ): ReturnType<typeof setInterval> | undefined {
+    if (!receiptHandle) {
+      return undefined;
+    }
+
+    return setInterval(() => {
+      void this.client
+        .send(
+          new ChangeMessageVisibilityCommand({
+            QueueUrl: this.config.wagerQueueUrl,
+            ReceiptHandle: receiptHandle,
+            VisibilityTimeout: 60,
+          }),
+        )
+        .catch(() => undefined);
+    }, 30_000);
+  }
+
+  private recordRedeliveryAndReplay(
+    messageId: string,
+    attributes: Record<string, string> | undefined,
+    output: ProcessWagerOutput,
+  ): void {
+    const receiveCount = Number(attributes?.ApproximateReceiveCount ?? 1);
+    const isRedelivery = receiveCount > 1 || output.idempotentReplay;
+
+    if (isRedelivery) {
+      this.metrics.increment("sqs_redeliveries_total");
+      this.logger.warn(
+        JSON.stringify({
+          event: "sqs_message_redelivered",
+          messageId,
+          receiveCount,
+          idempotentReplay: output.idempotentReplay,
+        }),
+      );
+    }
+
+    if (output.idempotentReplay) {
+      this.metrics.increment("inbox_duplicates_total");
     }
   }
 
@@ -273,3 +428,4 @@ export class SqsWagerConsumer {
     this.metrics.increment("sqs_dlq_total", { reason });
   }
 }
+

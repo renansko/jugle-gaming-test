@@ -13,6 +13,12 @@ const environmentSchema = z.object({
   SQS_WAGER_QUEUE_URL: z.string().url(),
   SQS_WAGER_DLQ_URL: z.string().url(),
   SQS_EVENT_QUEUE_URL: z.string().url(),
+  SHUTDOWN_GRACE_PERIOD_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(60000)
+    .default(5000),
   TEST_WORKERS_AUTOSTART: z.enum(["true", "false"]).optional(),
 }).superRefine((environment, context) => {
   if (
@@ -40,6 +46,7 @@ export class AppConfig {
     public readonly wagerDlqUrl: string,
     public readonly eventQueueUrl: string,
     public readonly autostartWorkers: boolean,
+    public readonly shutdownGracePeriodMs: number = 5000,
   ) {}
 }
 
@@ -64,5 +71,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     value.SQS_WAGER_DLQ_URL,
     value.SQS_EVENT_QUEUE_URL,
     value.NODE_ENV !== "test" || value.TEST_WORKERS_AUTOSTART === "true",
+    value.SHUTDOWN_GRACE_PERIOD_MS,
   );
 }
+

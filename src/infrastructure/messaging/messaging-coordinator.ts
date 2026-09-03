@@ -47,7 +47,7 @@ export class MessagingCoordinator
 
   public async beforeApplicationShutdown(): Promise<void> {
     this.stopping = true;
-    this.consumer.stop();
+    await this.consumer.shutdown(this.config.shutdownGracePeriodMs);
 
     await Promise.allSettled(this.workerTasks);
     this.publisher.stop();

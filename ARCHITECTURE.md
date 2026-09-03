@@ -273,6 +273,9 @@ redelivery encontra Inbox/idempotência; depois do commit e antes da publicaçã
 outra instância encontra a Outbox; depois do envio e antes de marcar publicação,
 o contrato `at-least-once` admite duplicação com identidade estável.
 
+Em encerramento gracioso (`SIGTERM`), novos polls de mensagens cessam imediatamente e o consumidor aguarda até `SHUTDOWN_GRACE_PERIOD_MS` para concluir mensagens ativas em voo. Se o prazo expirar com mensagens ainda em execução, a visibilidade de cada mensagem ativa é imediatamente alterada para zero (`VisibilityTimeout: 0`), permitindo que réplicas ativas assumam o processamento sem aguardar a expiração do timeout padrão.
+
+
 ## 8. Escalabilidade e limites comprovados
 
 Eu separo escala total de contenção local. Várias instâncias processam wallets

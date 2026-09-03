@@ -20,6 +20,10 @@ interface HistogramValue {
 export class OperationalMetrics {
   private readonly counters = new Map<string, number>([
     ["wager_transactions_total{}", 0],
+    ["consumer_drain_total{}", 0],
+    ["consumer_visibility_released_total{}", 0],
+    ["sqs_redeliveries_total{}", 0],
+    ["shutdown_failures_total{}", 0],
   ]);
   private readonly gauges = new Map<string, number>([
     ["wallet_lock_duration_ms{}", 0],

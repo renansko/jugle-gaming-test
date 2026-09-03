@@ -4,7 +4,7 @@
 
 `consume(message: SqsMessage): Promise<ConsumeDecision>`
 
-Valida envelope, deduplica pela inbox e chama `ProcessWagerTransaction`. Retorna `ACK`, `RETRY` ou `DLQ`; o adapter aplica a decisão depois do commit.
+Valida envelope, detecta redeliveries (`receiveCount > 1` ou replay idempotente), deduplica pela inbox e chama `ProcessWagerTransaction`. O delete no SQS ocorre somente após o commit transacional completo. Retorna `ACK`, `RETRY` ou `DLQ`.
 
 ## publishBatch
 
@@ -25,4 +25,5 @@ recuperação de registros legados. Ao exceder tentativas/TTL, rejeita com
 
 `shutdown(gracePeriodMs: number): Promise<void>`
 
-Interrompe novos polls, aguarda operações em voo até o limite e deixa mensagens não concluídas recuperáveis por visibility timeout.
+Interrompe novos polls, aguarda mensagens ativas em voo até o prazo (`gracePeriodMs`). Se todas concluírem, emite métrica de drain e encerra o cliente. Se o prazo expirar, altera a visibilidade das mensagens pendentes para zero (`VisibilityTimeout: 0`) para assunção imediata por outra instância, emite métricas de devolução/falha e destrói o cliente.
+

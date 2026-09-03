@@ -19,3 +19,39 @@ test("does not start background loops when the test-only worker switch is disabl
 
   expect(coordinator.isRunning()).toBe(false);
 });
+
+test("delegates graceful shutdown to consumer.shutdown with configured grace period", async () => {
+  let shutdownGracePeriodPassed: number | undefined;
+  let publisherStopped = false;
+
+  const consumer = {
+    pollOnce: () => Promise.resolve(),
+    shutdown: (gracePeriodMs?: number) => {
+      shutdownGracePeriodPassed = gracePeriodMs;
+      return Promise.resolve();
+    },
+  };
+  const publisher = {
+    publishBatch: () => Promise.resolve(),
+    stop: () => {
+      publisherStopped = true;
+    },
+  };
+  const references = { processBatch: () => Promise.resolve() };
+  const metrics = { increment: () => undefined };
+  const config = { autostartWorkers: false, shutdownGracePeriodMs: 4000 };
+
+  const coordinator = new MessagingCoordinator(
+    consumer as never,
+    publisher as never,
+    references as never,
+    metrics as never,
+    config as never,
+  );
+
+  await coordinator.beforeApplicationShutdown();
+
+  expect(shutdownGracePeriodPassed).toBe(4000);
+  expect(publisherStopped).toBe(true);
+});
+

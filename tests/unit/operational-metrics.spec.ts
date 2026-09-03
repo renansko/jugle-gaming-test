@@ -10,5 +10,9 @@ describe("OperationalMetrics", () => {
     expect(metrics.get("wager_processing_latency_ms{}")).toBe(0);
     expect(metrics.get("outbox_pending{}")).toBe(0);
     expect(metrics.get("outbox_lag_ms{}")).toBe(0);
+    expect(metrics.get("consumer_drain_total{}")).toBe(0);
+    expect(metrics.get("consumer_visibility_released_total{}")).toBe(0);
+    expect(metrics.get("sqs_redeliveries_total{}")).toBe(0);
+    expect(metrics.get("shutdown_failures_total{}")).toBe(0);
   });
 });

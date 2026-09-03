@@ -28,3 +28,5 @@
 - 2026-09-02 | ISSUE-13 | CI de carga aguarda as três réplicas em `/health/ready` antes do runner; readiness confirma PostgreSQL e SQS.
 - 2026-09-02 | documentação de arquitetura | `ARCHITECTURE.md` reescrito como registro visual do raciocínio, trade-offs, garantias de mensageria, limites comprovados e perguntas de descoberta com o cliente.
 - 2026-09-02 | ISSUE-14 | Conformidade estrita com o challenge: DTO de carteira aceita initialBalance.currency sem moeda raiz; reconciliação retorna valores monetários estruturados com walletId; transações expõem transactionId; suporte a WIN com referência opcional a BET e PENDING_REFERENCE quando ausente; eliminação de links quebrados.
+- 2026-09-02 | ISSUE-15 | Recuperação de consumer e graceful shutdown: interrupção pós-commit e pré-delete comprovada com idempotência exata no redelivery; encerramento por SIGTERM cessa polling, drena mensagens ativas em prazo configurável ou devolve visibilidade (timeout zero) para outra réplica; métricas e logs dedicados de drain, devolução, redelivery e timeout.
+
